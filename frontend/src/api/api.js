@@ -14,14 +14,9 @@ export async function login(email, password) {
   return response.json();
 }
 
-export function getToken() {
-  return localStorage.getItem("access_token");
-}
-
 export async function getAnnonces(filters = {}) {
   const token = localStorage.getItem("access_token");
 
-  // 🔥 Nettoyage des filtres (clé pro)
   const cleanFilters = Object.fromEntries(
     Object.entries(filters).filter(
       ([_, value]) => value !== undefined && value !== ""
@@ -30,14 +25,11 @@ export async function getAnnonces(filters = {}) {
 
   const params = new URLSearchParams(cleanFilters).toString();
 
-  const response = await fetch(
-    `http://localhost:8000/api/annonces/?${params}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+  const response = await fetch(`${API_URL}/annonces/?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   if (!response.ok) {
     throw new Error("Erreur chargement annonces");
@@ -49,7 +41,7 @@ export async function getAnnonces(filters = {}) {
 export async function createAnnonce(data) {
   const token = localStorage.getItem("access_token");
 
-  const response = await fetch("http://localhost:8000/api/annonces/", {
+  const response = await fetch(`${API_URL}/annonces/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -59,8 +51,7 @@ export async function createAnnonce(data) {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error);
+    throw new Error("Erreur création annonce");
   }
 
   return response.json();
