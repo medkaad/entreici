@@ -1,0 +1,7 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: entreici_backend
+    command: python -m django --version
