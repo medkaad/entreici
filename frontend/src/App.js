@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Login from "./Login";
 
 function App() {
-  const [status, setStatus] = useState("loading...");
+  const [isAuth, setIsAuth] = useState(
+    !!localStorage.getItem("access_token")
+  );
 
-  useEffect(() => {
-    fetch("http://localhost:8000/api/health/")
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus("error"));
-  }, []);
+  if (!isAuth) {
+    return <Login onLogin={() => setIsAuth(true)} />;
+  }
 
   return (
     <div style={{ padding: 40 }}>
       <h1>EntreIci</h1>
-      <p>Backend status: {status}</p>
+      <p>Connecté 🎉</p>
     </div>
   );
 }
