@@ -1,17 +1,19 @@
 import { useState } from "react";
-import { login } from "./api/api";
+import { useNavigate } from "react-router-dom";
+import { login } from "../api/api";
 
-function Login({ onLogin }) {
+function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
     try {
       const data = await login(email, password);
       localStorage.setItem("access_token", data.access);
-      onLogin();
+      navigate("/");
     } catch {
       setError("Email ou mot de passe incorrect");
     }
