@@ -1,57 +1,209 @@
 const API_URL = "http://localhost:8000/api";
 
+/* =========================
+   TOKEN UTILS
+========================= */
+
+function getAccessToken() {
+  return localStorage.getItem("access_token");
+}
+
+function getRefreshToken() {
+  return localStorage.getItem("refresh_token");
+}
+
+function setAccessToken(token) {
+  localStorage.setItem("access_token", token);
+}
+
+function clearTokens() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
+/* =========================
+   REFRESH TOKEN
+========================= */
+
+async function refreshAccessToken() {
+  const refresh = getRefreshToken();
+
+  if (!refresh) {
+    throw new Error("No refresh token");
+  }
+
+  const response = await fetch(`${API_URL}/users/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Refresh failed");
+  }
+
+  const data = await response.json();
+  setAccessToken(data.access);
+
+  return data.access;
+}
+
+/* =========================
+   FETCH WRAPPER
+========================= */
+
+async function fetchWithAuth(url, options = {}) {
+  let accessToken = getAccessToken();
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      ...(options.headers || {}),
+    },
+  });
+
+  // Si token expiré
+  if (response.status === 401) {
+    try {
+      accessToken = await refreshAccessToken();
+
+      // Rejoue la requête avec nouveau token
+      return fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          ...(options.headers || {}),
+        },
+      });
+    } catch (error) {
+      clearTokens();
+      window.location.href = "/login";
+      throw error;
+    }
+  }
+
+  return response;
+}
+
+/* =========================
+   HANDLE RESPONSE
+========================= */
+
+async function handleResponse(response) {
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Erreur API");
+  }
+  return response.json();
+}
+
+/* =========================
+   AUTH
+========================= */
+
 export async function login(email, password) {
-  const response = await fetch(`${API_URL}/auth/login/`, {
+  const response = await fetch(`${API_URL}/users/login/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
 
-  if (!response.ok) {
-    throw new Error("Login failed");
-  }
+  const data = await handleResponse(response);
 
-  return response.json();
+  localStorage.setItem("access_token", data.access);
+  localStorage.setItem("refresh_token", data.refresh);
+
+  return data;
 }
 
-export async function getAnnonces(filters = {}) {
-  const token = localStorage.getItem("access_token");
+export function logout() {
+  clearTokens();
+}
 
-  const cleanFilters = Object.fromEntries(
-    Object.entries(filters).filter(
-      ([_, value]) => value !== undefined && value !== ""
-    )
+/* =========================
+   ANNONCES
+========================= */
+
+export async function getAnnonces(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/?${params}`
   );
 
-  const params = new URLSearchParams(cleanFilters).toString();
-
-  const response = await fetch(`${API_URL}/annonces/?${params}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Erreur chargement annonces");
-  }
-
-  return response.json();
+  return handleResponse(response);
 }
 
 export async function createAnnonce(data) {
-  const token = localStorage.getItem("access_token");
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
 
-  const response = await fetch(`${API_URL}/annonces/`, {
+  return handleResponse(response);
+}
+
+/* =========================
+   CHAT
+========================= */
+
+export async function getConversations() {
+  const response = await fetchWithAuth(
+    `${API_URL}/chat/conversations/`
+  );
+
+  return handleResponse(response);
+}
+
+export async function createConversation(annonceId) {
+  const response = await fetchWithAuth(
+    `${API_URL}/chat/conversations/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ annonce: annonceId }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function getMessages(conversationId) {
+  const response = await fetchWithAuth(
+    `${API_URL}/chat/conversations/${conversationId}/messages/`
+  );
+
+  return handleResponse(response);
+}
+
+export async function sendMessage(conversationId, content) {
+  const response = await fetchWithAuth(
+    `${API_URL}/chat/conversations/${conversationId}/messages/`,
+    {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function registerUser(data) {
+  const response = await fetch("http://localhost:8000/api/users/register/", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   });
 
   if (!response.ok) {
-    throw new Error("Erreur création annonce");
+    throw new Error("Erreur inscription");
   }
 
   return response.json();
