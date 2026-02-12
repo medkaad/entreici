@@ -5,6 +5,7 @@ import Conversations from "../pages/Conversations";
 import Messages from "../pages/Messages";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Register from "../pages/Register";
+import MesAnnonces from "../pages/MesAnnonces";
 
 function AppRoutes() {
   return (
@@ -40,6 +41,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Messages />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mes-annonces"
+        element={
+          <ProtectedRoute>
+            <MesAnnonces />
           </ProtectedRoute>
         }
       />

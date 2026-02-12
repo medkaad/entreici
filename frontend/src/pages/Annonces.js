@@ -14,7 +14,14 @@ function Annonces() {
   const loadAnnonces = async (filters = {}) => {
     try {
       const data = await getAnnonces(filters);
-      setAnnonces(Array.isArray(data) ? data : data.results || []);
+      const allAnnonces = Array.isArray(data) ? data : data.results || [];
+
+      // 🔥 Exclure mes annonces
+      const autresAnnonces = allAnnonces.filter(
+        (a) => a.user_email !== currentUserEmail
+      );
+
+      setAnnonces(autresAnnonces);
     } catch (error) {
       console.error("Erreur chargement annonces:", error);
     }
@@ -54,27 +61,40 @@ function Annonces() {
     };
 
     return (
-      <span className={`text-xs px-3 py-1 rounded-full ${colors[status]}`}>
+      <span
+        className={`text-xs px-3 py-1 rounded-full ${
+          colors[status] || "bg-gray-100 text-gray-600"
+        }`}
+      >
         {status}
       </span>
     );
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-bold text-gray-800">
           Annonces - Villemomble
         </h2>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition"
-        >
-          + Créer une annonce
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/mes-annonces")}
+            className="bg-gray-700 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition"
+          >
+            Mes annonces
+          </button>
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition"
+          >
+            + Créer une annonce
+          </button>
+        </div>
       </div>
 
       {/* FILTRES */}
@@ -124,28 +144,21 @@ function Annonces() {
 
               <div className="flex justify-between items-center mt-3">
                 {formatStatus(a.status)}
-
-                {a.user_email === currentUserEmail && (
-                  <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                    Mon annonce
-                  </span>
-                )}
               </div>
 
-              {a.user_email !== currentUserEmail && (
-                <button
-                  onClick={() => handleContact(a.id)}
-                  className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                  Contacter
-                </button>
-              )}
+              {/* Toujours bouton contacter (car ce sont les annonces des autres) */}
+              <button
+                onClick={() => handleContact(a.id)}
+                className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+              >
+                Contacter
+              </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* MODALE */}
+      {/* MODALE CREATION */}
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div
