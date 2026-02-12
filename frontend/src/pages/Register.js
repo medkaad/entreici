@@ -8,6 +8,8 @@ function Register() {
   const [form, setForm] = useState({
     email: "",
     username: "",
+    first_name: "",
+    last_name: "",
     password: "",
     ville: "",
     quartier: "",
@@ -56,6 +58,28 @@ function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
+          {/* Prénom */}
+          <input
+            name="first_name"
+            type="text"
+            placeholder="Prénom"
+            required
+            value={form.first_name}
+            onChange={handleChange}
+            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+          />
+
+          {/* Nom */}
+          <input
+            name="last_name"
+            type="text"
+            placeholder="Nom"
+            required
+            value={form.last_name}
+            onChange={handleChange}
+            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+          />
+
           {/* Email */}
           <input
             name="email"
@@ -100,7 +124,7 @@ function Register() {
             className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
           />
 
-          {/* Quartier - OBLIGATOIRE */}
+          {/* Quartier */}
           <input
             name="quartier"
             type="text"
@@ -117,6 +141,7 @@ function Register() {
           >
             S'inscrire
           </button>
+
         </form>
 
         <p className="mt-6 text-center text-sm">
