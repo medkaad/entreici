@@ -6,6 +6,7 @@ import Messages from "../pages/Messages";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Register from "../pages/Register";
 import MesAnnonces from "../pages/MesAnnonces";
+import Profile from "../pages/Profile";
 
 function AppRoutes() {
   return (
@@ -56,6 +57,9 @@ function AppRoutes() {
 
       {/* Catch all → redirect home */}
       <Route path="*" element={<Navigate to="/" />} />
+
+      <Route path="/profile" element={<Profile />} />
+
 
     </Routes>
   );

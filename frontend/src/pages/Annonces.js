@@ -93,21 +93,12 @@ function Annonces() {
           Annonces - Villemomble
         </h2>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => navigate("/mes-annonces")}
-            className="bg-gray-800 text-white px-5 py-2 rounded-2xl hover:bg-black transition shadow"
-          >
-            Mes annonces
-          </button>
-
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-2xl hover:scale-105 transform transition duration-200 shadow-md"
-          >
-            + Créer une annonce
-          </button>
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-2xl hover:scale-105 transform transition duration-200 shadow-md"
+        >
+          + Créer une annonce
+        </button>
       </div>
 
       {/* FILTRES BACKEND */}

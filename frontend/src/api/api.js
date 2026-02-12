@@ -246,3 +246,11 @@ export async function registerUser(data) {
 
   return handleResponse(response);
 }
+
+export async function getMe() {
+  const response = await fetchWithAuth(
+    `${API_URL}/users/me/`
+  );
+
+  return handleResponse(response);
+}
