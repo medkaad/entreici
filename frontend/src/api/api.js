@@ -64,12 +64,11 @@ async function fetchWithAuth(url, options = {}) {
     },
   });
 
-  // Si token expiré
+  // Token expiré → refresh
   if (response.status === 401) {
     try {
       accessToken = await refreshAccessToken();
 
-      // Rejoue la requête avec nouveau token
       return fetch(url, {
         ...options,
         headers: {
@@ -97,6 +96,12 @@ async function handleResponse(response) {
     const error = await response.json().catch(() => ({}));
     throw new Error(error.detail || "Erreur API");
   }
+
+  // DELETE peut retourner vide
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }
 
@@ -115,12 +120,14 @@ export async function login(email, password) {
 
   localStorage.setItem("access_token", data.access);
   localStorage.setItem("refresh_token", data.refresh);
+  localStorage.setItem("user_email", email);
 
   return data;
 }
 
 export function logout() {
   clearTokens();
+  localStorage.removeItem("user_email");
 }
 
 /* =========================
@@ -137,12 +144,43 @@ export async function getAnnonces(filters = {}) {
   return handleResponse(response);
 }
 
+export async function getMyAnnonces() {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/mine/`
+  );
+
+  return handleResponse(response);
+}
+
 export async function createAnnonce(data) {
   const response = await fetchWithAuth(
     `${API_URL}/annonces/`,
     {
       method: "POST",
       body: JSON.stringify(data),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function updateAnnonce(id, data) {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/${id}/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function deleteAnnonce(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/${id}/`,
+    {
+      method: "DELETE",
     }
   );
 
@@ -193,8 +231,12 @@ export async function sendMessage(conversationId, content) {
   return handleResponse(response);
 }
 
+/* =========================
+   REGISTER
+========================= */
+
 export async function registerUser(data) {
-  const response = await fetch("http://localhost:8000/api/users/register/", {
+  const response = await fetch(`${API_URL}/users/register/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -202,9 +244,5 @@ export async function registerUser(data) {
     body: JSON.stringify(data),
   });
 
-  if (!response.ok) {
-    throw new Error("Erreur inscription");
-  }
-
-  return response.json();
+  return handleResponse(response);
 }
