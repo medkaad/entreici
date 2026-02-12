@@ -20,7 +20,7 @@ function Conversations() {
   }, []);
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4">
 
       <h2 className="text-3xl font-bold text-gray-800 mb-6">
         Mes conversations
@@ -32,46 +32,44 @@ function Conversations() {
         </div>
       ) : (
         <div className="space-y-4">
-          {conversations.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => navigate(`/chat/${c.id}`)}
-              className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition cursor-pointer flex justify-between items-center"
-            >
-              <div>
-                <h4 className="font-semibold text-gray-800">
-                  {c.annonce_title}
-                </h4>
+          {conversations.map((c) => {
 
-                <p className="text-sm text-gray-500 mt-1">
-                  Conversation #{c.id}
-                </p>
+            const firstName = c.other_user?.first_name || "";
+            const lastName = c.other_user?.last_name || "";
+            const initial = lastName ? lastName.charAt(0).toUpperCase() + "." : "";
 
-                {/* Placeholder dernier message */}
-                {c.last_message && (
-                  <p className="text-sm text-gray-400 mt-1 truncate max-w-md">
-                    {c.last_message}
+            return (
+              <div
+                key={c.id}
+                onClick={() => navigate(`/chat/${c.id}`)}
+                className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition cursor-pointer flex justify-between items-center"
+              >
+                <div>
+                  {/* Nom de l'autre utilisateur */}
+                  <h4 className="font-semibold text-gray-800">
+                    {firstName
+                      ? `${firstName} ${initial}`
+                      : "Utilisateur"}
+                  </h4>
+
+                  {/* Titre annonce */}
+                  <p className="text-sm text-gray-500 mt-1">
+                    {c.annonce_title}
                   </p>
-                )}
-              </div>
 
-              <div className="flex flex-col items-end gap-2">
-                {/* Placeholder date */}
-                {c.updated_at && (
-                  <span className="text-xs text-gray-400">
-                    {new Date(c.updated_at).toLocaleDateString()}
-                  </span>
-                )}
+                </div>
 
-                {/* Placeholder unread */}
-                {c.unread_count > 0 && (
-                  <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full">
-                    {c.unread_count}
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                  {/* Date */}
+                  {c.created_at && (
+                    <span className="text-xs text-gray-400">
+                      {new Date(c.created_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

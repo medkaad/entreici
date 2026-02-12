@@ -22,15 +22,19 @@ class ConversationViewSet(viewsets.ModelViewSet):
             participants=self.request.user
         ).order_by("-created_at")
 
+    # ✅ TRÈS IMPORTANT pour éviter 500
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context.update({"request": self.request})
+        return context
+
     def perform_create(self, serializer):
         annonce_id = self.request.data.get("annonce")
         annonce = get_object_or_404(Annonce, id=annonce_id)
 
-        # ❌ empêcher contacter sa propre annonce
         if annonce.user_id == self.request.user.id:
             raise PermissionDenied("Vous ne pouvez pas contacter votre propre annonce.")
 
-        # ❌ empêcher doublon conversation
         existing = Conversation.objects.filter(
             annonce=annonce,
             participants=self.request.user

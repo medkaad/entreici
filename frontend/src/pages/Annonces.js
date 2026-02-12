@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAnnonces, createConversation } from "../api/api";
 import CreateAnnonce from "../components/CreateAnnonce";
@@ -12,7 +12,8 @@ function Annonces() {
   const navigate = useNavigate();
   const currentUserEmail = localStorage.getItem("user_email");
 
-  const loadAnnonces = async (filters = {}) => {
+  // ✅ Version propre avec useCallback
+  const loadAnnonces = useCallback(async (filters = {}) => {
     try {
       const data = await getAnnonces(filters);
       const allAnnonces = Array.isArray(data) ? data : data.results || [];
@@ -25,11 +26,12 @@ function Annonces() {
     } catch (error) {
       console.error("Erreur chargement annonces:", error);
     }
-  };
+  }, [currentUserEmail]);
 
+  // ✅ Plus de warning ESLint
   useEffect(() => {
     loadAnnonces();
-  }, []);
+  }, [loadAnnonces]);
 
   const handleContact = async (annonceId) => {
     try {
