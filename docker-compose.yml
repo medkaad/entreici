@@ -13,6 +13,7 @@ services:
     container_name: entreici_frontend
     volumes:
       - ./frontend:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
     stdin_open: true

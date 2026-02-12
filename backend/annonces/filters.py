@@ -7,4 +7,9 @@ class AnnonceFilter(django_filters.FilterSet):
 
     class Meta:
         model = Annonce
-        fields = ["city", "type"]
+        fields = [
+            "type",
+            "category",
+            "is_urgent",
+            "status",
+        ]
