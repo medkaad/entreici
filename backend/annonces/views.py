@@ -43,10 +43,29 @@ class AnnonceViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
-        if serializer.instance.user != self.request.user:
+        instance = serializer.instance
+        new_status = serializer.validated_data.get("status", instance.status)
+
+        if instance.user != self.request.user:
             raise PermissionDenied("Vous ne pouvez modifier que votre annonce.")
 
+        #  Workflow autorisé
+        allowed_transitions = {
+            "active": ["in_progress", "cancelled"],
+            "in_progress": ["completed", "cancelled"],
+            "completed": [],
+            "cancelled": [],
+        }
+
+        # Si on change le status
+        if new_status != instance.status:
+            if new_status not in allowed_transitions.get(instance.status, []):
+                raise PermissionDenied(
+                    f"Transition interdite : {instance.status} → {new_status}"
+                )
+
         serializer.save()
+
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

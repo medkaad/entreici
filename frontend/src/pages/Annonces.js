@@ -7,8 +7,9 @@ import Filtres from "../components/Filtres";
 function Annonces() {
   const [annonces, setAnnonces] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const navigate = useNavigate();
+  const [activeOnly, setActiveOnly] = useState(true);
 
+  const navigate = useNavigate();
   const currentUserEmail = localStorage.getItem("user_email");
 
   const loadAnnonces = async (filters = {}) => {
@@ -16,10 +17,9 @@ function Annonces() {
       const data = await getAnnonces(filters);
       const allAnnonces = Array.isArray(data) ? data : data.results || [];
 
-      // 🔥 Exclure mes annonces
-      const autresAnnonces = allAnnonces.filter(
-        (a) => a.user_email !== currentUserEmail
-      );
+      const autresAnnonces = allAnnonces
+        .filter((a) => a.user_email !== currentUserEmail)
+        .filter((a) => a.status !== "completed");
 
       setAnnonces(autresAnnonces);
     } catch (error) {
@@ -53,66 +53,92 @@ function Annonces() {
   };
 
   const formatStatus = (status) => {
-    const colors = {
-      active: "bg-green-100 text-green-700",
-      in_progress: "bg-yellow-100 text-yellow-700",
-      completed: "bg-blue-100 text-blue-700",
-      cancelled: "bg-red-100 text-red-700",
+    const map = {
+      active: {
+        label: "Active",
+        color: "bg-green-50 text-green-600 border border-green-200",
+      },
+      in_progress: {
+        label: "En cours",
+        color: "bg-yellow-50 text-yellow-600 border border-yellow-200",
+      },
+      cancelled: {
+        label: "Annulée",
+        color: "bg-red-50 text-red-600 border border-red-200",
+      },
+    };
+
+    const config = map[status] || {
+      label: status,
+      color: "bg-gray-50 text-gray-500 border border-gray-200",
     };
 
     return (
-      <span
-        className={`text-xs px-3 py-1 rounded-full ${
-          colors[status] || "bg-gray-100 text-gray-600"
-        }`}
-      >
-        {status}
+      <span className={`text-xs px-3 py-1 rounded-full ${config.color}`}>
+        {config.label}
       </span>
     );
   };
+
+  const annoncesFiltrees = activeOnly
+    ? annonces.filter((a) => a.status === "active")
+    : annonces;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800">
+      <div className="flex justify-between items-center mb-10">
+        <h2 className="text-4xl font-bold text-gray-900 tracking-tight">
           Annonces - Villemomble
         </h2>
 
         <div className="flex gap-3">
           <button
             onClick={() => navigate("/mes-annonces")}
-            className="bg-gray-700 text-white px-4 py-2 rounded-xl hover:bg-gray-800 transition"
+            className="bg-gray-800 text-white px-5 py-2 rounded-2xl hover:bg-black transition shadow"
           >
             Mes annonces
           </button>
 
           <button
             onClick={() => setShowModal(true)}
-            className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition"
+            className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-2 rounded-2xl hover:scale-105 transform transition duration-200 shadow-md"
           >
             + Créer une annonce
           </button>
         </div>
       </div>
 
-      {/* FILTRES */}
-      <div className="mb-8">
+      {/* FILTRES BACKEND */}
+      <div className="mb-6">
         <Filtres onFilter={loadAnnonces} />
       </div>
 
+      {/* FILTRE FRONTEND */}
+      <div className="mb-8 flex items-center gap-3 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+        <input
+          type="checkbox"
+          checked={activeOnly}
+          onChange={() => setActiveOnly(!activeOnly)}
+          className="w-4 h-4"
+        />
+        <label className="text-sm font-medium text-gray-700">
+          Afficher uniquement les annonces actives
+        </label>
+      </div>
+
       {/* LISTE */}
-      {annonces.length === 0 ? (
-        <div className="bg-white p-6 rounded-2xl shadow text-center text-gray-500">
+      {annoncesFiltrees.length === 0 ? (
+        <div className="bg-white p-8 rounded-3xl shadow text-center text-gray-500">
           Aucune annonce disponible.
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {annonces.map((a) => (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {annoncesFiltrees.map((a) => (
             <div
               key={a.id}
-              className="bg-white p-5 rounded-2xl shadow hover:shadow-lg transition relative"
+              className="bg-white p-6 rounded-3xl shadow-md hover:shadow-xl transition duration-300 border border-gray-100 relative group"
             >
               {/* Type */}
               <span className="text-xs bg-gray-100 px-3 py-1 rounded-full">
@@ -121,16 +147,16 @@ function Annonces() {
 
               {/* Urgent */}
               {a.is_urgent && (
-                <span className="absolute top-4 right-4 text-xs bg-red-500 text-white px-2 py-1 rounded-full">
+                <span className="absolute top-5 right-5 text-xs bg-red-500 text-white px-3 py-1 rounded-full shadow">
                   URGENT
                 </span>
               )}
 
-              <h3 className="font-semibold text-lg mt-3 mb-2">
+              <h3 className="font-semibold text-lg mt-4 mb-2 text-gray-800 group-hover:text-blue-600 transition">
                 {a.title}
               </h3>
 
-              <p className="text-gray-600 text-sm mb-3">
+              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
                 {a.description}
               </p>
 
@@ -138,21 +164,29 @@ function Annonces() {
                 Catégorie : {a.category}
               </p>
 
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm font-semibold text-gray-800 mt-1">
                 Prix : {a.price ?? "Non précisé"} €
               </p>
 
-              <div className="flex justify-between items-center mt-3">
+              <div className="flex justify-between items-center mt-4">
                 {formatStatus(a.status)}
               </div>
 
-              {/* Toujours bouton contacter (car ce sont les annonces des autres) */}
-              <button
-                onClick={() => handleContact(a.id)}
-                className="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-              >
-                Contacter
-              </button>
+              {a.status === "active" ? (
+                <button
+                  onClick={() => handleContact(a.id)}
+                  className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 rounded-xl hover:scale-105 transform transition duration-200 shadow-md"
+                >
+                  Contacter
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="w-full mt-6 bg-gray-200 text-gray-500 py-2 rounded-xl cursor-not-allowed"
+                >
+                  Indisponible
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -162,11 +196,11 @@ function Annonces() {
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
 
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 z-10">
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 z-10 animate-fadeIn">
             <CreateAnnonce
               onCreated={() => {
                 loadAnnonces();
