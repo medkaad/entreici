@@ -37,13 +37,25 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-
 class ProfileSerializer(serializers.ModelSerializer):
+    ville = serializers.CharField(source="profile.ville", read_only=True)
+    quartier = serializers.CharField(source="profile.quartier", read_only=True)
+    score = serializers.FloatField(source="profile.score", read_only=True)
+    total_reviews = serializers.IntegerField(source="profile.total_reviews", read_only=True)
+    badge = serializers.CharField(source="profile.badge", read_only=True)
+
     class Meta:
         model = User
         fields = [
             "email",
             "username",
+            "first_name",
+            "last_name",
             "role",
             "is_verified",
+            "ville",
+            "quartier",
+            "score",
+            "total_reviews",
+            "badge",
         ]
