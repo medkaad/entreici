@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Register from "../pages/Register";
 import MesAnnonces from "../pages/MesAnnonces";
 import Profile from "../pages/Profile";
+import PublicProfile from "../pages/PublicProfile";
 
 function AppRoutes() {
   return (
@@ -60,6 +61,7 @@ function AppRoutes() {
 
       <Route path="/profile" element={<Profile />} />
 
+      <Route path="/users/:id" element={<PublicProfile />} />
 
     </Routes>
   );
