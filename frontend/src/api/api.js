@@ -254,3 +254,11 @@ export async function getMe() {
 
   return handleResponse(response);
 }
+
+export async function getConversation(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/chat/conversations/${id}/`
+  );
+
+  return handleResponse(response);
+}
