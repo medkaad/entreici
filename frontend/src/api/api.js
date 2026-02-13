@@ -262,3 +262,11 @@ export async function getConversation(id) {
 
   return handleResponse(response);
 }
+
+export async function getUserProfile(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/users/${id}/`
+  );
+
+  return handleResponse(response);
+}

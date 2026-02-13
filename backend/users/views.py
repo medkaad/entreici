@@ -49,3 +49,10 @@ class MyFavoritesView(APIView):
         from annonces.serializers import AnnonceSerializer
         serializer = AnnonceSerializer(favorites, many=True)
         return Response(serializer.data)
+
+class PublicProfileView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    #permission_classes = [AllowAny]
+    serializer_class = ProfileSerializer
+    queryset = User.objects.all()
+    lookup_field = "id"
