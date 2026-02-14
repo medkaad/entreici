@@ -144,6 +144,19 @@ export async function getAnnonces(filters = {}) {
   return handleResponse(response);
 }
 
+export async function getAnnonce(id) {
+  const response = await fetchWithAuth(`${API_URL}/annonces/${id}/`);
+  return handleResponse(response);
+}
+
+export async function createReview(annonceId, data) {
+  const response = await fetchWithAuth(`${API_URL}/annonces/${annonceId}/review/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return handleResponse(response);
+}
+
 export async function getMyAnnonces() {
   const response = await fetchWithAuth(
     `${API_URL}/annonces/mine/`
