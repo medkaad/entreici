@@ -8,8 +8,7 @@ from rest_framework.permissions import AllowAny
 from annonces.models import Annonce
 from django.shortcuts import get_object_or_404
 
-
-from .serializers import RegisterSerializer, ProfileSerializer
+from .serializers import RegisterSerializer, ProfileSerializer, UpdateProfileSerializer, ChangePasswordSerializer
 
 User = get_user_model()
 
@@ -24,6 +23,17 @@ class MeView(APIView):
     def get(self, request):
         serializer = ProfileSerializer(request.user)
         return Response(serializer.data)
+    
+    def patch(self, request):
+        serializer = UpdateProfileSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(ProfileSerializer(request.user).data)
     
 class ToggleFavoriteView(APIView):
     permission_classes = [IsAuthenticated]
@@ -56,3 +66,24 @@ class PublicProfileView(generics.RetrieveAPIView):
     serializer_class = ProfileSerializer
     queryset = User.objects.all()
     lookup_field = "id"
+
+class UpdateMeView(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UpdateProfileSerializer
+
+    def get_object(self):
+        return self.request.user
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "Mot de passe modifié avec succès."})
+

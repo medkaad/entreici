@@ -270,3 +270,27 @@ export async function getUserProfile(id) {
 
   return handleResponse(response);
 }
+
+export async function updateMe(data) {
+  const response = await fetchWithAuth(
+    `${API_URL}/users/me/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }
+  );
+
+  return handleResponse(response);
+}
+
+export async function changePassword(data) {
+  const response = await fetchWithAuth(
+    `${API_URL}/users/change-password/`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+
+  return handleResponse(response);
+}
