@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { getAnnonces, createConversation } from "../api/api";
 import CreateAnnonce from "../components/CreateAnnonce";
 import Filtres from "../components/Filtres";
@@ -12,27 +12,30 @@ function Annonces() {
   const navigate = useNavigate();
   const currentUserEmail = localStorage.getItem("user_email");
 
-  // ✅ Version propre avec useCallback
-  const loadAnnonces = useCallback(async (filters = {}) => {
-    try {
-      const data = await getAnnonces(filters);
-      const allAnnonces = Array.isArray(data) ? data : data.results || [];
+  // ✅ chargement annonces
+  const loadAnnonces = useCallback(
+    async (filters = {}) => {
+      try {
+        const data = await getAnnonces(filters);
+        const allAnnonces = Array.isArray(data) ? data : data.results || [];
 
-      const autresAnnonces = allAnnonces
-        .filter((a) => a.user_email !== currentUserEmail)
-        .filter((a) => a.status !== "completed");
+        const autresAnnonces = allAnnonces
+          .filter((a) => a.user_email !== currentUserEmail)
+          .filter((a) => a.status !== "completed");
 
-      setAnnonces(autresAnnonces);
-    } catch (error) {
-      console.error("Erreur chargement annonces:", error);
-    }
-  }, [currentUserEmail]);
+        setAnnonces(autresAnnonces);
+      } catch (error) {
+        console.error("Erreur chargement annonces:", error);
+      }
+    },
+    [currentUserEmail]
+  );
 
-  // ✅ Plus de warning ESLint
   useEffect(() => {
     loadAnnonces();
   }, [loadAnnonces]);
 
+  // ✅ contact
   const handleContact = async (annonceId) => {
     try {
       const conversation = await createConversation(annonceId);
@@ -43,6 +46,7 @@ function Annonces() {
     }
   };
 
+  // helpers
   const formatType = (type) => {
     const map = {
       service_offer: "Service proposé",
@@ -88,7 +92,6 @@ function Annonces() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-
       {/* HEADER */}
       <div className="flex justify-between items-center mb-10">
         <h2 className="text-4xl font-bold text-gray-900 tracking-tight">
@@ -133,6 +136,62 @@ function Annonces() {
               key={a.id}
               className="bg-white p-6 rounded-3xl shadow-md hover:shadow-xl transition duration-300 border border-gray-100 relative group"
             >
+              {/* AUTEUR (clic vers profil public) */}
+              {/* nécessite user_id dans l'API */}
+              {a.user_id ? (
+                <Link
+                  to={`/users/${a.user_id}`}
+                  className="flex items-center justify-between mb-4 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition"
+                  title="Voir le profil"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                      {(a.user_first_name?.[0] || a.user_email?.[0] || "?").toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {a.user_first_name || a.user_last_name
+                          ? `${a.user_first_name || ""} ${a.user_last_name || ""}`.trim()
+                          : a.user_email || "Utilisateur"}
+                      </p>
+
+                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                        <span>
+                          ⭐ {Number(a.user_score || 0).toFixed(1)} ({a.user_total_reviews || 0})
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                          {a.user_badge || "Nouveau"}
+                        </span>
+
+                        {a.user_is_verified && (
+                          <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                            Vérifié ✔
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-semibold text-blue-600">Voir →</span>
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl border border-gray-100">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">
+                    {(a.user_email?.[0] || "?").toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {a.user_email || "Utilisateur"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      (ID profil manquant dans l’API)
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Type */}
               <span className="text-xs bg-gray-100 px-3 py-1 rounded-full">
                 {formatType(a.type)}

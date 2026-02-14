@@ -115,3 +115,27 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.set_password(new_password)
         user.save()
         return user
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    ville = serializers.CharField(source="profile.ville", read_only=True)
+    quartier = serializers.CharField(source="profile.quartier", read_only=True)
+    description = serializers.CharField(source="profile.description", read_only=True)
+    score = serializers.FloatField(source="profile.score", read_only=True)
+    total_reviews = serializers.IntegerField(source="profile.total_reviews", read_only=True)
+    badge = serializers.CharField(source="profile.badge", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "is_verified",
+            "ville",
+            "quartier",
+            "description",
+            "score",
+            "total_reviews",
+            "badge",
+        ]

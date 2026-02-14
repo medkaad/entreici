@@ -30,7 +30,7 @@ class AnnonceViewSet(viewsets.ModelViewSet):
 
         return (
             Annonce.objects
-            .select_related("user")
+            .select_related("user", "user__profile")
             .filter(
                 Q(status__in=["active", "in_progress", "completed", "cancelled"]) |
                 Q(user=user)
@@ -84,6 +84,7 @@ class AnnonceViewSet(viewsets.ModelViewSet):
     def mine(self, request):
         annonces = (
             Annonce.objects
+            .select_related("user", "user__profile")
             .filter(user=request.user)
             .exclude(status="deleted")
             .order_by("-created_at")
