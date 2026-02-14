@@ -72,6 +72,10 @@ function Annonces() {
         label: "Annulée",
         color: "bg-red-50 text-red-600 border border-red-200",
       },
+      completed: {
+        label: "Terminée",
+        color: "bg-blue-50 text-blue-600 border border-blue-200",
+      },
     };
 
     const config = map[status] || {
@@ -134,13 +138,19 @@ function Annonces() {
           {annoncesFiltrees.map((a) => (
             <div
               key={a.id}
-              className="bg-white p-6 rounded-3xl shadow-md hover:shadow-xl transition duration-300 border border-gray-100 relative group"
+              onClick={() => navigate(`/annonces/${a.id}`)} // ✅ clic carte => détail
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") navigate(`/annonces/${a.id}`);
+              }}
+              className="bg-white p-6 rounded-3xl shadow-md hover:shadow-xl transition duration-300 border border-gray-100 relative group cursor-pointer"
             >
               {/* AUTEUR (clic vers profil public) */}
-              {/* nécessite user_id dans l'API */}
               {a.user_id ? (
                 <Link
                   to={`/users/${a.user_id}`}
+                  onClick={(e) => e.stopPropagation()} // ✅ évite d’ouvrir le détail
                   className="flex items-center justify-between mb-4 p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition"
                   title="Voir le profil"
                 >
@@ -177,7 +187,10 @@ function Annonces() {
                   <span className="text-xs font-semibold text-blue-600">Voir →</span>
                 </Link>
               ) : (
-                <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl border border-gray-100">
+                <div
+                  className="flex items-center gap-3 mb-4 p-3 rounded-2xl border border-gray-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="w-10 h-10 rounded-full bg-gray-300 text-white flex items-center justify-center font-bold">
                     {(a.user_email?.[0] || "?").toUpperCase()}
                   </div>
@@ -193,13 +206,19 @@ function Annonces() {
               )}
 
               {/* Type */}
-              <span className="text-xs bg-gray-100 px-3 py-1 rounded-full">
+              <span
+                className="text-xs bg-gray-100 px-3 py-1 rounded-full"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {formatType(a.type)}
               </span>
 
               {/* Urgent */}
               {a.is_urgent && (
-                <span className="absolute top-5 right-5 text-xs bg-red-500 text-white px-3 py-1 rounded-full shadow">
+                <span
+                  className="absolute top-5 right-5 text-xs bg-red-500 text-white px-3 py-1 rounded-full shadow"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   URGENT
                 </span>
               )}
@@ -224,9 +243,13 @@ function Annonces() {
                 {formatStatus(a.status)}
               </div>
 
+              {/* CTA */}
               {a.status === "active" ? (
                 <button
-                  onClick={() => handleContact(a.id)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // ✅ évite d’ouvrir le détail
+                    handleContact(a.id);
+                  }}
                   className="w-full mt-6 bg-gradient-to-r from-blue-600 to-blue-500 text-white py-2 rounded-xl hover:scale-105 transform transition duration-200 shadow-md"
                 >
                   Contacter
@@ -234,6 +257,7 @@ function Annonces() {
               ) : (
                 <button
                   disabled
+                  onClick={(e) => e.stopPropagation()}
                   className="w-full mt-6 bg-gray-200 text-gray-500 py-2 rounded-xl cursor-not-allowed"
                 >
                   Indisponible
@@ -252,7 +276,10 @@ function Annonces() {
             onClick={() => setShowModal(false)}
           />
 
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 z-10 animate-fadeIn">
+          <div
+            className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 z-10 animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
             <CreateAnnonce
               onCreated={() => {
                 loadAnnonces();

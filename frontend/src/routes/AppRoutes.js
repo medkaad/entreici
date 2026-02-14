@@ -8,6 +8,7 @@ import Register from "../pages/Register";
 import MesAnnonces from "../pages/MesAnnonces";
 import Profile from "../pages/Profile";
 import PublicProfile from "../pages/PublicProfile";
+import AnnonceDetail from "../pages/AnnonceDetail";
 
 function AppRoutes() {
   return (
@@ -55,6 +56,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/annonces/:id"
+        element={
+          <ProtectedRoute>
+            <AnnonceDetail />
+          </ProtectedRoute>
+        }
+      />
+
 
       {/* Catch all → redirect home */}
       <Route path="*" element={<Navigate to="/" />} />
