@@ -48,6 +48,26 @@ class Annonce(models.Model):
         default="active",
     )
 
+    reservation_requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reservation_requests"
+    )
+
+    reservation_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("none", "Aucune"),
+            ("pending", "En attente"),
+            ("accepted", "Acceptée"),
+            ("rejected", "Refusée"),
+        ],
+        default="none"
+    )
+
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
