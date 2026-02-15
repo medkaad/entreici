@@ -307,3 +307,34 @@ export async function changePassword(data) {
 
   return handleResponse(response);
 }
+
+/* =========================
+   RESERVATION WORKFLOW
+   /api/annonces/:id/request_reservation/
+   /api/annonces/:id/accept_reservation/
+   /api/annonces/:id/reject_reservation/
+========================= */
+
+export async function requestReservation(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/${id}/request_reservation/`,
+    { method: "POST" }
+  );
+  return handleResponse(response);
+}
+
+export async function acceptReservation(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/${id}/accept_reservation/`,
+    { method: "POST" }
+  );
+  return handleResponse(response);
+}
+
+export async function rejectReservation(id) {
+  const response = await fetchWithAuth(
+    `${API_URL}/annonces/${id}/reject_reservation/`,
+    { method: "POST" }
+  );
+  return handleResponse(response);
+}

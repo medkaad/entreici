@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { getMyAnnonces, deleteAnnonce, updateAnnonce } from "../api/api";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  getMyAnnonces,
+  deleteAnnonce,
+  updateAnnonce,
+  acceptReservation,
+  rejectReservation,
+} from "../api/api";
 
 function MesAnnonces() {
   const [annonces, setAnnonces] = useState([]);
@@ -7,10 +14,15 @@ function MesAnnonces() {
 
   // 📝 Edition
   const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({
-    title: "",
-    description: "",
-  });
+  const [editData, setEditData] = useState({ title: "", description: "" });
+
+  const [reservationBusyId, setReservationBusyId] = useState(null);
+
+  // 🔔 Notifications (bannière)
+  const [notif, setNotif] = useState(null); // { count, annonceId }
+  const lastPendingIdsRef = useRef(new Set()); // pour détecter nouveaux pending sans rerender
+
+  const navigate = useNavigate();
 
   // 🔐 Workflow identique backend
   const allowedTransitions = {
@@ -22,90 +34,12 @@ function MesAnnonces() {
 
   const allStatuses = ["active", "in_progress", "completed", "cancelled"];
 
-  async function loadAnnonces() {
-    try {
-      const data = await getMyAnnonces();
-      setAnnonces(Array.isArray(data) ? data : data.results || []);
-    } catch (error) {
-      console.error("Erreur chargement:", error);
-    }
-  }
-
-  useEffect(() => {
-    loadAnnonces();
-  }, []);
-
-  async function handleDelete(id) {
-    try {
-      await deleteAnnonce(id);
-      setAnnonces((prev) => prev.filter((a) => a.id !== id));
-    } catch (error) {
-      setErrorMessage("Impossible de supprimer l'annonce.");
-    }
-  }
-
-  async function handleStatusChange(id, newStatus, oldStatus) {
-    if (newStatus === oldStatus) return;
-
-    try {
-      await updateAnnonce(id, { status: newStatus });
-
-      setAnnonces((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, status: newStatus } : a
-        )
-      );
-
-      setErrorMessage(null);
-    } catch (error) {
-      const message =
-        error.response?.data?.detail ||
-        "Transition non autorisée.";
-
-      setErrorMessage(message);
-
-      // rollback visuel
-      setAnnonces((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, status: oldStatus } : a
-        )
-      );
-    }
-  }
-
-  // ✏️ Lancer édition
-  function startEditing(annonce) {
-    setEditingId(annonce.id);
-    setEditData({
-      title: annonce.title,
-      description: annonce.description,
-    });
-  }
-
-  // 💾 Sauvegarder modification
-  async function handleEditSave(id) {
-    try {
-      await updateAnnonce(id, editData);
-
-      setAnnonces((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, ...editData } : a
-        )
-      );
-
-      setEditingId(null);
-      setErrorMessage(null);
-    } catch (error) {
-      setErrorMessage("Erreur lors de la modification.");
-    }
-  }
-
+  // ---------- helpers ----------
   const isAllowed = (current, target) => {
     if (current === target) return true;
     return allowedTransitions[current]?.includes(target);
   };
 
-  // 🎨 Styles dynamiques
   const getStatusStyle = (status) => {
     switch (status) {
       case "active":
@@ -136,9 +70,207 @@ function MesAnnonces() {
     }
   };
 
+  const getReservationBadge = (rStatus) => {
+    const map = {
+      none: { label: "Aucune", cls: "bg-gray-50 text-gray-600 border-gray-200" },
+      pending: { label: "En attente", cls: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+      accepted: { label: "Acceptée", cls: "bg-green-50 text-green-700 border-green-200" },
+      rejected: { label: "Refusée", cls: "bg-red-50 text-red-700 border-red-200" },
+    };
+    const c = map[rStatus || "none"] || map.none;
+    return (
+      <span className={`text-xs px-3 py-1 rounded-full border ${c.cls}`}>
+        Réservation : {c.label}
+      </span>
+    );
+  };
+
+  // ---------- Notification navigateur (optionnel) ----------
+  async function maybeBrowserNotify(title, body) {
+    try {
+      if (!("Notification" in window)) return;
+
+      if (Notification.permission === "default") {
+        // demande permission au premier "vrai" événement
+        await Notification.requestPermission();
+      }
+
+      if (Notification.permission === "granted") {
+        new Notification(title, { body });
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // ---------- Load + detect new pending ----------
+  async function loadAnnonces({ silent = false } = {}) {
+    try {
+      const data = await getMyAnnonces();
+      const list = Array.isArray(data) ? data : data.results || [];
+
+      // détecter les nouveaux "pending"
+      const pendingNow = list.filter((a) => a.reservation_status === "pending");
+      const pendingIdsNow = new Set(pendingNow.map((a) => a.id));
+
+      // nouveaux = ceux qui n’étaient pas dans l’ancien set
+      const newPending = pendingNow.filter((a) => !lastPendingIdsRef.current.has(a.id));
+
+      // update ref
+      lastPendingIdsRef.current = pendingIdsNow;
+
+      setAnnonces(list);
+      if (!silent) setErrorMessage(null);
+
+      if (newPending.length > 0) {
+        const first = newPending[0];
+        setNotif({ count: newPending.length, annonceId: first.id });
+
+        // Option: notification navigateur
+        maybeBrowserNotify(
+          "Nouvelle demande de réservation",
+          `${newPending.length} nouvelle(s) demande(s). Exemple : "${first.title}"`
+        );
+
+        // Auto-hide bannière après 12s
+        window.clearTimeout(window.__notifTimer);
+        window.__notifTimer = window.setTimeout(() => setNotif(null), 12000);
+      }
+    } catch (error) {
+      console.error("Erreur chargement:", error);
+      if (!silent) setErrorMessage("Impossible de charger tes annonces.");
+    }
+  }
+
+  // 1er chargement
+  useEffect(() => {
+    loadAnnonces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Polling toutes les 8 secondes (notification)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAnnonces({ silent: true });
+    }, 8000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------- Actions ----------
+  async function handleDelete(id) {
+    try {
+      await deleteAnnonce(id);
+      setAnnonces((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      setErrorMessage("Impossible de supprimer l'annonce.");
+    }
+  }
+
+  async function handleStatusChange(id, newStatus, oldStatus) {
+    if (newStatus === oldStatus) return;
+
+    try {
+      await updateAnnonce(id, { status: newStatus });
+      setAnnonces((prev) => prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a)));
+      setErrorMessage(null);
+    } catch (error) {
+      const message = error?.message || "Transition non autorisée.";
+      setErrorMessage(message);
+
+      // rollback
+      setAnnonces((prev) => prev.map((a) => (a.id === id ? { ...a, status: oldStatus } : a)));
+    }
+  }
+
+  function startEditing(annonce) {
+    setEditingId(annonce.id);
+    setEditData({ title: annonce.title, description: annonce.description });
+  }
+
+  async function handleEditSave(id) {
+    try {
+      await updateAnnonce(id, editData);
+      setAnnonces((prev) => prev.map((a) => (a.id === id ? { ...a, ...editData } : a)));
+      setEditingId(null);
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage("Erreur lors de la modification.");
+    }
+  }
+
+  async function handleAcceptReservation(id) {
+    setErrorMessage(null);
+    setReservationBusyId(id);
+    try {
+      await acceptReservation(id);
+      await loadAnnonces({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error?.message || "Erreur lors de l’acceptation.");
+    } finally {
+      setReservationBusyId(null);
+    }
+  }
+
+  async function handleRejectReservation(id) {
+    setErrorMessage(null);
+    setReservationBusyId(id);
+    try {
+      await rejectReservation(id);
+      await loadAnnonces({ silent: true });
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(error?.message || "Erreur lors du refus.");
+    } finally {
+      setReservationBusyId(null);
+    }
+  }
+
   return (
     <div className="p-10 max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold mb-8">Mes Annonces</h2>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h2 className="text-3xl font-bold">Mes Annonces</h2>
+
+        <button
+          onClick={() => loadAnnonces()}
+          className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black transition"
+          title="Rafraîchir"
+        >
+          ↻ Actualiser
+        </button>
+      </div>
+
+      {/* 🔔 Notification bannière */}
+      {notif && (
+        <div
+          className="mb-6 p-4 rounded-2xl border border-yellow-200 bg-yellow-50 text-yellow-900 flex items-center justify-between gap-4 cursor-pointer"
+          onClick={() => {
+            navigate(`/annonces/${notif.annonceId}`);
+            setNotif(null);
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="min-w-0">
+            <p className="font-semibold">🔔 Nouvelle demande de réservation</p>
+            <p className="text-sm text-yellow-800">
+              {notif.count} nouvelle(s) demande(s). Clique pour voir.
+            </p>
+          </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setNotif(null);
+            }}
+            className="px-3 py-1 rounded-lg bg-white border border-yellow-200 text-yellow-900 hover:bg-yellow-100"
+          >
+            Fermer
+          </button>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="bg-red-100 text-red-700 p-3 rounded-xl mb-6 border border-red-200">
@@ -146,9 +278,7 @@ function MesAnnonces() {
         </div>
       )}
 
-      {annonces.length === 0 && (
-        <p className="text-gray-500">Aucune annonce créée.</p>
-      )}
+      {annonces.length === 0 && <p className="text-gray-500">Aucune annonce créée.</p>}
 
       {annonces.map((a) => (
         <div
@@ -161,17 +291,13 @@ function MesAnnonces() {
               <input
                 type="text"
                 value={editData.title}
-                onChange={(e) =>
-                  setEditData({ ...editData, title: e.target.value })
-                }
+                onChange={(e) => setEditData({ ...editData, title: e.target.value })}
                 className="border p-2 w-full mb-3 rounded-lg"
               />
 
               <textarea
                 value={editData.description}
-                onChange={(e) =>
-                  setEditData({ ...editData, description: e.target.value })
-                }
+                onChange={(e) => setEditData({ ...editData, description: e.target.value })}
                 className="border p-2 w-full mb-4 rounded-lg"
               />
 
@@ -194,34 +320,73 @@ function MesAnnonces() {
           ) : (
             <>
               {/* 👁️ MODE NORMAL */}
-              <div className="flex justify-between items-center mb-3">
+              <div className="flex justify-between items-center mb-3 gap-3">
                 <h3 className="text-xl font-semibold">{a.title}</h3>
 
-                <span
-                  className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusStyle(
-                    a.status
-                  )}`}
-                >
-                  {getStatusLabel(a.status)}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <span className={`px-3 py-1 text-sm font-medium rounded-full border ${getStatusStyle(a.status)}`}>
+                    {getStatusLabel(a.status)}
+                  </span>
+                  {getReservationBadge(a.reservation_status)}
+                </div>
+              </div>
+
+              {/* ✅ Bloc réservation */}
+              <div className="mb-4 p-4 rounded-xl border bg-gray-50">
+                <p className="text-sm text-gray-700">
+                  Demandeur : <b>{a.reservation_requester_email || "—"}</b>
+                </p>
+
+                {a.reservation_status === "pending" && (
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={() => handleAcceptReservation(a.id)}
+                      disabled={reservationBusyId === a.id}
+                      className={`px-4 py-2 rounded-lg text-white ${
+                        reservationBusyId === a.id ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      {reservationBusyId === a.id ? "..." : "Accepter"}
+                    </button>
+
+                    <button
+                      onClick={() => handleRejectReservation(a.id)}
+                      disabled={reservationBusyId === a.id}
+                      className={`px-4 py-2 rounded-lg text-white ${
+                        reservationBusyId === a.id ? "bg-gray-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+                      }`}
+                    >
+                      {reservationBusyId === a.id ? "..." : "Refuser"}
+                    </button>
+                  </div>
+                )}
+
+                {a.reservation_status === "accepted" && (
+                  <p className="text-sm text-green-700 mt-2">✅ Réservation acceptée — service en cours.</p>
+                )}
+
+                {a.reservation_status === "rejected" && (
+                  <p className="text-sm text-red-700 mt-2">❌ Demande refusée.</p>
+                )}
               </div>
 
               <p className="text-gray-600 mb-4">{a.description}</p>
 
-              <div className="flex gap-4 items-center">
+              <div className="flex flex-wrap gap-3 items-center">
+                <button
+                  onClick={() => navigate(`/annonces/${a.id}`)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                >
+                  Voir détail
+                </button>
+
                 <select
                   value={a.status}
-                  onChange={(e) =>
-                    handleStatusChange(a.id, e.target.value, a.status)
-                  }
+                  onChange={(e) => handleStatusChange(a.id, e.target.value, a.status)}
                   className="border px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 >
                   {allStatuses.map((status) => (
-                    <option
-                      key={status}
-                      value={status}
-                      disabled={!isAllowed(a.status, status)}
-                    >
+                    <option key={status} value={status} disabled={!isAllowed(a.status, status)}>
                       {getStatusLabel(status)}
                     </option>
                   ))}
