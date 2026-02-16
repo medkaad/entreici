@@ -16,3 +16,116 @@
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out;
 }
+
+/* =========================
+   SENIOR MODE (GLOBAL)
+   - appliqué quand <body class="senior">
+   - gros texte, gros boutons, gros champs
+   - focus très visible
+   ========================= */
+
+body.senior {
+  font-size: 18px;               /* base */
+  line-height: 1.6;
+}
+
+/* Contraste + lecture */
+body.senior p,
+body.senior span,
+body.senior label,
+body.senior a,
+body.senior li,
+body.senior div {
+  letter-spacing: 0.1px;
+}
+
+/* Zones cliquables (règle “44px minimum”) */
+body.senior button,
+body.senior a,
+body.senior [role="button"] {
+  min-height: 48px;
+}
+
+/* Champs */
+body.senior input,
+body.senior select,
+body.senior textarea {
+  min-height: 52px;
+  font-size: 1.05rem;
+  border-width: 2px !important;
+}
+
+/* Boutons */
+body.senior button {
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  font-size: 1.05rem;
+}
+
+/* Focus très visible (clavier) */
+body.senior button:focus-visible,
+body.senior a:focus-visible,
+body.senior input:focus-visible,
+body.senior select:focus-visible,
+body.senior textarea:focus-visible,
+body.senior [role="button"]:focus-visible {
+  outline: 4px solid #111827; /* noir */
+  outline-offset: 3px;
+}
+
+/* Réduction des animations (confort) */
+body.senior * {
+  scroll-behavior: auto !important;
+}
+
+/* Cartes plus lisibles */
+body.senior .senior-card {
+  border-width: 2px !important;
+}
+
+/* Petits textes minimum */
+body.senior .text-xs,
+body.senior .text-sm {
+  font-size: 0.95rem !important;
+}
+
+/* Liens plus visibles */
+body.senior a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* MODE SENIOR GLOBAL */
+body.senior {
+  font-size: 18px;
+}
+
+body.senior h1,
+body.senior h2,
+body.senior h3 {
+  letter-spacing: 0.02em;
+}
+
+/* Inputs + boutons plus grands */
+body.senior input,
+body.senior textarea,
+body.senior select {
+  font-size: 18px;
+  padding: 14px 16px;
+}
+
+body.senior button {
+  font-size: 18px;
+}
+
+/* Cartes plus espacées */
+body.senior .senior-card {
+  padding: 2rem !important;
+  border-radius: 24px !important;
+}
+
+/* Focus très visible */
+body.senior :focus {
+  outline: 3px solid #2563eb !important;
+  outline-offset: 2px;
+}

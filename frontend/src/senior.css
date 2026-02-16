@@ -1,0 +1,88 @@
+/* =========================
+   SENIOR MODE (GLOBAL)
+   Active quand: body.senior
+========================= */
+
+body.senior {
+  /* texte plus grand partout */
+  font-size: 18px;
+}
+
+/* Titres plus gros */
+body.senior h1 { font-size: 2rem; }
+body.senior h2 { font-size: 1.8rem; }
+body.senior h3 { font-size: 1.4rem; }
+
+/* Liens / menus plus “cliquables” */
+body.senior a,
+body.senior button {
+  min-height: 48px;           /* cible tactile */
+  font-size: 1.05rem;
+}
+
+/* Inputs + selects + textarea plus confort */
+body.senior input,
+body.senior select,
+body.senior textarea {
+  font-size: 1.05rem;
+  padding: 14px 16px;
+  border-radius: 16px;
+}
+
+/* Boutons : plus gros + plus visibles */
+body.senior button {
+  padding: 14px 18px;
+  border-radius: 18px;
+}
+
+/* Focus très visible (accessibilité) */
+body.senior button:focus,
+body.senior a:focus,
+body.senior input:focus,
+body.senior select:focus,
+body.senior textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.35); /* bleu */
+}
+
+/* Espacements généraux : plus “aéré” */
+body.senior .container,
+body.senior main {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+/* Cartes : plus lisibles */
+body.senior .card,
+body.senior .senior-card {
+  border-radius: 24px;
+}
+
+/* Texte secondaire un peu plus grand */
+body.senior .text-sm {
+  font-size: 1rem !important;
+}
+body.senior .text-xs {
+  font-size: 0.95rem !important;
+}
+
+/* Boutons full width fréquents */
+body.senior .senior-btn {
+  width: 100%;
+  padding: 16px 18px;
+  font-size: 1.1rem;
+  border-radius: 18px;
+}
+
+/* Badges plus gros */
+body.senior .senior-badge {
+  padding: 8px 14px;
+  border-radius: 9999px;
+  font-size: 1rem;
+}
+
+/* Réduit les animations (plus confort) */
+body.senior * {
+  scroll-behavior: auto !important;
+  transition-duration: 120ms !important;
+}
