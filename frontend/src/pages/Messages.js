@@ -1,6 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { getMessages, sendMessage, getConversation } from "../api/api";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useParams, Link } from "react-router-dom";
+import {
+  getMessages,
+  sendMessage,
+  getConversation,
+  acceptReservation,
+  rejectReservation,
+} from "../api/api";
 
 function Messages() {
   const { id } = useParams();
@@ -8,6 +14,10 @@ function Messages() {
   const [messages, setMessages] = useState([]);
   const [conversation, setConversation] = useState(null);
   const [content, setContent] = useState("");
+
+  const [actionMsg, setActionMsg] = useState(null);
+  const [actionErr, setActionErr] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const messagesEndRef = useRef(null);
 
@@ -65,9 +75,7 @@ function Messages() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      handleSend();
-    }
+    if (e.key === "Enter") handleSend();
   };
 
   /* =========================
@@ -81,39 +89,188 @@ function Messages() {
 
     if (!first_name) return `Conversation #${id}`;
 
-    const initial = last_name
-      ? `${last_name[0].toUpperCase()}.`
-      : "";
+    const initial = last_name ? `${last_name[0].toUpperCase()}.` : "";
 
     return `${first_name} ${initial}`;
   };
 
+  /* =========================
+     ANNONCE + RESERVATION (optionnel)
+  ========================= */
+  const annonce = conversation?.annonce || null;
+
+  const isOwner = useMemo(() => {
+    if (!annonce) return false;
+    return Boolean(currentUserEmail && annonce.user_email === currentUserEmail);
+  }, [annonce, currentUserEmail]);
+
+  const showOwnerDecisionButtons =
+    isOwner && annonce?.reservation_status === "pending";
+
+  async function handleAccept() {
+    if (!annonce?.id) return;
+    setActionMsg(null);
+    setActionErr(null);
+    setActionBusy(true);
+    try {
+      await acceptReservation(annonce.id);
+      setActionMsg("Réservation acceptée ✅");
+      await loadConversation();
+    } catch (e) {
+      setActionErr(e.message || "Erreur lors de l’acceptation.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    if (!annonce?.id) return;
+    setActionMsg(null);
+    setActionErr(null);
+    setActionBusy(true);
+    try {
+      await rejectReservation(annonce.id);
+      setActionMsg("Réservation refusée ✅");
+      await loadConversation();
+    } catch (e) {
+      setActionErr(e.message || "Erreur lors du refus.");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  /* =========================
+     UI RENDER MESSAGE
+     - si [AVIS:17] => bouton ⭐
+     - sinon linkify /annonces/ID et /users/ID
+  ========================= */
+
+  const renderPlainTextWithBreaks = (txt) => {
+    const lines = (txt || "").split("\n");
+    return (
+      <>
+        {lines.map((line, i) => (
+          <span key={i}>
+            {line}
+            {i < lines.length - 1 && <br />}
+          </span>
+        ))}
+      </>
+    );
+  };
+
+  const renderMessageContent = (text) => {
+    if (!text) return null;
+
+    // ✅ détecter le tag avis [AVIS:17]
+    const avisMatch = text.match(/\[AVIS:(\d+)\]/);
+    if (avisMatch) {
+      const annonceId = avisMatch[1];
+
+      // enlever le tag du texte affiché
+      const cleaned = text.replace(/\[AVIS:\d+\]/g, "").trim();
+
+      return (
+        <div className="space-y-3">
+          <div className="text-sm">
+            {renderPlainTextWithBreaks(cleaned)}
+          </div>
+
+          <Link
+            to={`/annonces/${annonceId}`}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-semibold bg-yellow-500 text-white hover:bg-yellow-600 transition"
+            onClick={(e) => e.stopPropagation()}
+          >
+            ⭐ Laisser un avis
+          </Link>
+        </div>
+      );
+    }
+
+    // ✅ linkify chemins simples
+    const regex = /(\/annonces\/\d+|\/users\/\d+)/g;
+    const parts = text.split(regex);
+
+    return parts.map((part, idx) => {
+      if (regex.test(part)) {
+        return (
+          <Link
+            key={idx}
+            to={part}
+            className="underline font-semibold"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </Link>
+        );
+      }
+      return (
+        <span key={idx}>
+          {renderPlainTextWithBreaks(part)}
+        </span>
+      );
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto h-[85vh] flex flex-col bg-white rounded-2xl shadow overflow-hidden">
-
       {/* HEADER */}
       <div className="bg-blue-600 text-white px-6 py-4">
-        <h2 className="text-lg font-semibold">
-          {formatName()}
-        </h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">{formatName()}</h2>
+
+          {annonce?.id && (
+            <Link
+              to={`/annonces/${annonce.id}`}
+              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold"
+            >
+              Voir l’annonce
+            </Link>
+          )}
+        </div>
+
+        {showOwnerDecisionButtons && (
+          <div className="mt-3 flex flex-wrap gap-3 items-center">
+            <button
+              onClick={handleAccept}
+              disabled={actionBusy}
+              className={`px-4 py-2 rounded-lg font-semibold text-white ${
+                actionBusy ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
+              }`}
+            >
+              {actionBusy ? "..." : "Accepter la réservation"}
+            </button>
+
+            <button
+              onClick={handleReject}
+              disabled={actionBusy}
+              className={`px-4 py-2 rounded-lg font-semibold text-white ${
+                actionBusy ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
+              }`}
+            >
+              {actionBusy ? "..." : "Refuser"}
+            </button>
+
+            {(actionErr || actionMsg) && (
+              <span className={`text-xs ${actionErr ? "text-red-200" : "text-green-200"}`}>
+                {actionErr || actionMsg}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* MESSAGES */}
       <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-4">
         {messages.length === 0 && (
-          <p className="text-gray-500 text-center">
-            Aucun message pour le moment.
-          </p>
+          <p className="text-gray-500 text-center">Aucun message pour le moment.</p>
         )}
 
         {messages.map((m) => {
           const isMe = m.sender_email === currentUserEmail;
 
           return (
-            <div
-              key={m.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-            >
+            <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-xs md:max-w-md px-4 py-3 rounded-2xl shadow-sm relative ${
                   isMe
@@ -127,7 +284,9 @@ function Messages() {
                   </p>
                 )}
 
-                <p className="text-sm">{m.content}</p>
+                <div className="text-sm">
+                  {renderMessageContent(m.content)}
+                </div>
 
                 {m.created_at && (
                   <p
