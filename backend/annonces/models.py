@@ -33,6 +33,9 @@ class Annonce(models.Model):
 
     category = models.CharField(max_length=100)
 
+    ville = models.CharField(max_length=100, db_index=True, default="")
+    quartier = models.CharField(max_length=100, blank=True, default="", db_index=True)
+
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
