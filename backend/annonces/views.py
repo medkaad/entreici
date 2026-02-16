@@ -25,13 +25,15 @@ class AnnonceViewSet(viewsets.ModelViewSet):
         SearchFilter,
         OrderingFilter,
     ]
-    filterset_fields = ["type", "category", "is_urgent", "status"]
+    filterset_fields = ["type", "category", "is_urgent", "status", "quartier"]
     search_fields = ["title", "description", "category"]
     ordering_fields = ["created_at", "price"]
 
     def get_queryset(self):
         user = self.request.user
-        return (
+        user_ville = getattr(user.profile, "ville", None)
+
+        qs = (
             Annonce.objects
             .select_related("user", "user__profile")
             .filter(
@@ -42,8 +44,19 @@ class AnnonceViewSet(viewsets.ModelViewSet):
             .order_by("-created_at")
         )
 
+        # ✅ IMPORTANT : seulement la ville du user
+        if user_ville:
+            qs = qs.filter(ville=user_ville)
+
+        return qs
+
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        profile = self.request.user.profile
+        serializer.save(
+            user=self.request.user,
+            ville=profile.ville,
+            quartier=profile.quartier or ""
+        )
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -329,3 +342,18 @@ class AnnonceViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED
         )
+
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def quartiers(self, request):
+        user_ville = request.user.profile.ville
+
+        quartiers = (
+            Annonce.objects
+            .filter(ville=user_ville)
+            .exclude(quartier="")
+            .values_list("quartier", flat=True)
+            .distinct()
+            .order_by("quartier")
+        )
+
+        return Response({"ville": user_ville, "quartiers": list(quartiers)})

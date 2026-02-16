@@ -338,3 +338,8 @@ export async function rejectReservation(id) {
   );
   return handleResponse(response);
 }
+
+export async function getQuartiers() {
+  const response = await fetchWithAuth(`${API_URL}/annonces/quartiers/`);
+  return handleResponse(response);
+}

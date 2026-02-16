@@ -37,6 +37,8 @@ class AnnonceSerializer(serializers.ModelSerializer):
             "user_score",
             "user_total_reviews",
             "user_badge",
+            "ville",
+            "quartier",
             "type",
             "title",
             "description",
