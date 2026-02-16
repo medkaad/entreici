@@ -8,10 +8,12 @@ import {
   acceptReservation,
   rejectReservation,
 } from "../api/api";
+import { useToast } from "../ui/Toast";
 
 function AnnonceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const currentUserEmail = localStorage.getItem("user_email");
 
@@ -48,6 +50,7 @@ function AnnonceDetail() {
 
   useEffect(() => {
     loadAnnonce();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const isOwner = useMemo(() => {
@@ -102,20 +105,20 @@ function AnnonceDetail() {
 
   const formatStatus = (status) => {
     const map = {
-      active: { label: "Active", cls: "bg-green-50 text-green-600 border border-green-200" },
-      in_progress: { label: "En cours", cls: "bg-yellow-50 text-yellow-600 border border-yellow-200" },
-      completed: { label: "Terminée", cls: "bg-blue-50 text-blue-600 border border-blue-200" },
-      cancelled: { label: "Annulée", cls: "bg-red-50 text-red-600 border border-red-200" },
+      active: { label: "Active", cls: "bg-green-50 text-green-800 border border-green-200" },
+      in_progress: { label: "En cours", cls: "bg-yellow-50 text-yellow-900 border border-yellow-200" },
+      completed: { label: "Terminée", cls: "bg-blue-50 text-blue-800 border border-blue-200" },
+      cancelled: { label: "Annulée", cls: "bg-red-50 text-red-800 border border-red-200" },
     };
-    return map[status] || { label: status || "—", cls: "bg-gray-50 text-gray-500 border border-gray-200" };
+    return map[status] || { label: status || "—", cls: "bg-gray-50 text-gray-800 border border-gray-200" };
   };
 
   const formatReservation = (st) => {
     const map = {
-      none: { label: "Aucune réservation", cls: "bg-gray-50 text-gray-600 border border-gray-200" },
-      pending: { label: "Réservation en attente", cls: "bg-yellow-50 text-yellow-700 border border-yellow-200" },
-      accepted: { label: "Réservation acceptée", cls: "bg-green-50 text-green-700 border border-green-200" },
-      rejected: { label: "Réservation refusée", cls: "bg-red-50 text-red-700 border border-red-200" },
+      none: { label: "Aucune réservation", cls: "bg-gray-50 text-gray-800 border border-gray-200" },
+      pending: { label: "Réservation en attente", cls: "bg-yellow-50 text-yellow-900 border border-yellow-200" },
+      accepted: { label: "Réservation acceptée", cls: "bg-green-50 text-green-900 border border-green-200" },
+      rejected: { label: "Réservation refusée", cls: "bg-red-50 text-red-900 border border-red-200" },
     };
     return map[st] || map.none;
   };
@@ -136,10 +139,11 @@ function AnnonceDetail() {
   const handleContact = async () => {
     try {
       const conv = await createConversation(annonce.id);
+      toast.success("Conversation ouverte ✅");
       navigate(`/chat/${conv.id}`);
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      toast.error(err?.message || "Impossible d’ouvrir la conversation.");
     }
   };
 
@@ -151,10 +155,13 @@ function AnnonceDetail() {
       setActionLoading(true);
       await requestReservation(annonce.id);
       setActionMsg("Demande envoyée ✅");
+      toast.success("Demande de réservation envoyée ✅");
       await loadAnnonce();
     } catch (err) {
       console.error(err);
-      setActionErr(err.message || "Erreur lors de la demande.");
+      const m = err?.message || "Erreur lors de la demande.";
+      setActionErr(m);
+      toast.error(m);
     } finally {
       setActionLoading(false);
     }
@@ -168,10 +175,13 @@ function AnnonceDetail() {
       setActionLoading(true);
       await acceptReservation(annonce.id);
       setActionMsg("Réservation acceptée ✅");
+      toast.success("Réservation acceptée ✅");
       await loadAnnonce();
     } catch (err) {
       console.error(err);
-      setActionErr(err.message || "Erreur lors de l’acceptation.");
+      const m = err?.message || "Erreur lors de l’acceptation.";
+      setActionErr(m);
+      toast.error(m);
     } finally {
       setActionLoading(false);
     }
@@ -185,10 +195,13 @@ function AnnonceDetail() {
       setActionLoading(true);
       await rejectReservation(annonce.id);
       setActionMsg("Réservation refusée ❌");
+      toast.info("Réservation refusée.");
       await loadAnnonce();
     } catch (err) {
       console.error(err);
-      setActionErr(err.message || "Erreur lors du refus.");
+      const m = err?.message || "Erreur lors du refus.";
+      setActionErr(m);
+      toast.error(m);
     } finally {
       setActionLoading(false);
     }
@@ -199,9 +212,16 @@ function AnnonceDetail() {
     setReviewErr(null);
 
     if (!canLeaveReview) {
-      setReviewErr(
-        "Avis autorisé uniquement si : réservation acceptée + annonce terminée + tu es le demandeur."
-      );
+      const m =
+        "Avis autorisé uniquement si : réservation acceptée + annonce terminée + tu es le demandeur.";
+      setReviewErr(m);
+      toast.info("Avis non disponible pour le moment.");
+      return;
+    }
+
+    if (!comment.trim()) {
+      setReviewErr("Merci d’écrire un commentaire.");
+      toast.info("Ajoutez un commentaire avant d’envoyer.");
       return;
     }
 
@@ -209,65 +229,77 @@ function AnnonceDetail() {
       setSendingReview(true);
       await createReview(annonce.id, { rating, comment });
       setReviewMsg("Avis envoyé ✅ Merci !");
+      toast.success("Avis envoyé ✅");
       setComment("");
       await loadAnnonce(); // met à jour score/badge
     } catch (err) {
       console.error(err);
-      setReviewErr(err.message || "Erreur lors de l’envoi de l’avis.");
+      const m = err?.message || "Erreur lors de l’envoi de l’avis.";
+      setReviewErr(m);
+      toast.error(m);
     } finally {
       setSendingReview(false);
     }
   }
 
   if (loading) {
-    return <div className="p-10 text-center text-gray-500">Chargement...</div>;
+    return (
+      <div className="bg-white p-8 rounded-3xl shadow text-center text-gray-700 text-lg senior-card">
+        ⏳ Chargement de l’annonce...
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-10 text-center text-red-600">{error}</div>;
+    return (
+      <div className="bg-red-50 text-red-700 border border-red-200 p-6 rounded-3xl text-center text-lg senior-card">
+        ❌ {error}
+      </div>
+    );
   }
 
   if (!annonce) return null;
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+    <div className="max-w-4xl mx-auto p-6 md:p-8">
+      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden senior-card">
+
         {/* HEADER */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-8">
-          <div className="flex items-start justify-between gap-6">
+          <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="min-w-0">
-              <h1 className="text-3xl font-bold break-words">
+              <h1 className="text-3xl md:text-4xl font-extrabold break-words">
                 {annonce.title || "Annonce"}
               </h1>
 
-              <div className="flex gap-3 mt-4 flex-wrap items-center">
-                <span className="text-xs bg-white/20 px-3 py-1 rounded-full">
+              <div className="flex gap-3 mt-5 flex-wrap items-center">
+                <span className="text-base bg-white/20 px-4 py-2 rounded-full font-extrabold">
                   {formatType(annonce.type)}
                 </span>
 
-                <span className={`text-xs px-3 py-1 rounded-full border ${statusCfg.cls}`}>
+                <span className={`text-base px-4 py-2 rounded-full font-extrabold ${statusCfg.cls}`}>
                   {statusCfg.label}
                 </span>
 
-                <span className={`text-xs px-3 py-1 rounded-full ${reservCfg.cls}`}>
+                <span className={`text-base px-4 py-2 rounded-full font-extrabold ${reservCfg.cls}`}>
                   {reservCfg.label}
                 </span>
 
                 {annonce.is_urgent && (
-                  <span className="text-xs bg-red-500 px-3 py-1 rounded-full shadow">
-                    URGENT
+                  <span className="text-base bg-red-500 px-4 py-2 rounded-full shadow font-extrabold">
+                    ⚠ URGENT
                   </span>
                 )}
               </div>
 
-              <div className="mt-4 text-blue-100 text-sm">
-                <span className="mr-4">
+              <div className="mt-5 text-blue-100 text-base font-semibold flex flex-wrap gap-6">
+                <span>
                   Catégorie :{" "}
-                  <span className="font-semibold">{annonce.category || "—"}</span>
+                  <span className="font-extrabold">{annonce.category || "—"}</span>
                 </span>
                 <span>
                   Prix :{" "}
-                  <span className="font-semibold">
+                  <span className="font-extrabold">
                     {annonce.price === null || annonce.price === undefined || annonce.price === ""
                       ? "Non précisé"
                       : `${annonce.price} €`}
@@ -276,12 +308,13 @@ function AnnonceDetail() {
               </div>
             </div>
 
-            <Link
-              to="/"
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold shrink-0"
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="bg-white text-blue-700 px-6 py-4 rounded-3xl font-extrabold shrink-0 hover:bg-blue-50 transition focus:outline-none focus:ring-4 focus:ring-blue-200"
             >
-              Retour
-            </Link>
+              ↩ Retour
+            </button>
           </div>
         </div>
 
@@ -289,23 +322,25 @@ function AnnonceDetail() {
         <div className="p-8 grid md:grid-cols-2 gap-8">
           {/* DETAILS */}
           <div>
-            <h2 className="text-xl font-semibold mb-3 text-gray-800">Détails</h2>
+            <h2 className="text-2xl font-extrabold mb-3 text-gray-900">
+              Détails
+            </h2>
 
-            <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <p className="text-gray-700 whitespace-pre-line">
+            <div className="p-5 bg-gray-50 rounded-3xl border border-gray-100 senior-card">
+              <p className="text-gray-900 whitespace-pre-line text-base leading-relaxed">
                 {annonce.description?.trim() ? annonce.description : "—"}
               </p>
             </div>
 
             {/* Actions */}
             <div className="mt-6 space-y-3">
-              {/* Chat (par annonce) */}
+              {/* Chat */}
               {canChat && !isOwner && (
                 <button
                   onClick={handleContact}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-3 rounded-xl font-semibold hover:scale-[1.02] transition shadow-md"
+                  className="w-full bg-blue-700 text-white py-5 rounded-3xl font-extrabold text-lg hover:bg-blue-800 transition shadow-md focus:outline-none focus:ring-4 focus:ring-blue-200"
                 >
-                  Contacter
+                  💬 Contacter
                 </button>
               )}
 
@@ -314,70 +349,72 @@ function AnnonceDetail() {
                 <button
                   onClick={handleReservationRequest}
                   disabled={actionLoading}
-                  className={`w-full py-3 rounded-xl font-semibold text-white transition shadow-md ${
+                  className={`w-full py-5 rounded-3xl font-extrabold text-lg text-white transition shadow-md focus:outline-none focus:ring-4 focus:ring-green-200 ${
                     actionLoading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
                   }`}
                 >
-                  {actionLoading ? "Envoi..." : "Demander la réservation"}
+                  {actionLoading ? "Envoi..." : "✅ Demander la réservation"}
                 </button>
               )}
 
               {/* Etat réservation pour demandeur */}
               {isRequester && reservationStatus === "pending" && (
-                <div className="p-4 rounded-2xl border bg-yellow-50 text-yellow-800">
-                  Ta demande de réservation est en attente de validation.
+                <div className="p-5 rounded-3xl border bg-yellow-50 text-yellow-900 text-base font-semibold senior-card">
+                  ⏳ Ta demande de réservation est en attente de validation.
                 </div>
               )}
 
               {isRequester && reservationStatus === "accepted" && (
-                <div className="p-4 rounded-2xl border bg-green-50 text-green-800">
-                  Ta réservation a été acceptée ✅
+                <div className="p-5 rounded-3xl border bg-green-50 text-green-900 text-base font-semibold senior-card">
+                  ✅ Ta réservation a été acceptée.
                 </div>
               )}
 
               {isRequester && reservationStatus === "rejected" && (
-                <div className="p-4 rounded-2xl border bg-red-50 text-red-800">
-                  Ta réservation a été refusée ❌
+                <div className="p-5 rounded-3xl border bg-red-50 text-red-900 text-base font-semibold senior-card">
+                  ❌ Ta réservation a été refusée.
                 </div>
               )}
 
               {/* Owner voit le demandeur */}
               {isOwner && reservationStatus === "pending" && requesterName && (
-                <div className="p-4 rounded-2xl border bg-gray-50 text-gray-800">
-                  <div className="text-sm text-gray-600">Demande de réservation par</div>
-                  <div className="font-semibold">{requesterName}</div>
+                <div className="p-5 rounded-3xl border bg-gray-50 text-gray-900 senior-card">
+                  <div className="text-base text-gray-700 font-semibold">
+                    Demande de réservation par
+                  </div>
+                  <div className="font-extrabold text-lg mt-1">{requesterName}</div>
                 </div>
               )}
 
               {/* Owner accepte/refuse */}
               {canOwnerAcceptReject && (
-                <div className="flex gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={handleAccept}
                     disabled={actionLoading}
-                    className={`flex-1 py-3 rounded-xl font-semibold text-white ${
+                    className={`py-5 rounded-3xl font-extrabold text-lg text-white focus:outline-none focus:ring-4 focus:ring-green-200 ${
                       actionLoading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
                     }`}
                   >
-                    Accepter
+                    ✅ Accepter
                   </button>
 
                   <button
                     onClick={handleReject}
                     disabled={actionLoading}
-                    className={`flex-1 py-3 rounded-xl font-semibold text-white ${
+                    className={`py-5 rounded-3xl font-extrabold text-lg text-white focus:outline-none focus:ring-4 focus:ring-red-200 ${
                       actionLoading ? "bg-gray-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
                     }`}
                   >
-                    Refuser
+                    ❌ Refuser
                   </button>
                 </div>
               )}
 
               {(actionErr || actionMsg) && (
-                <div className="text-sm">
-                  {actionErr && <span className="text-red-600">{actionErr}</span>}
-                  {actionMsg && <span className="text-green-600">{actionMsg}</span>}
+                <div className="text-base font-semibold">
+                  {actionErr && <span className="text-red-700">{actionErr}</span>}
+                  {actionMsg && <span className="text-green-700">{actionMsg}</span>}
                 </div>
               )}
             </div>
@@ -385,44 +422,50 @@ function AnnonceDetail() {
 
           {/* AUTEUR */}
           <div>
-            <h2 className="text-xl font-semibold mb-3 text-gray-800">Auteur</h2>
+            <h2 className="text-2xl font-extrabold mb-3 text-gray-900">
+              Auteur
+            </h2>
 
             {annonce.user_id ? (
               <Link
                 to={`/users/${annonce.user_id}`}
-                className="block p-5 border border-gray-100 rounded-2xl hover:bg-blue-50 hover:border-blue-200 transition"
+                className="block p-6 border border-gray-100 rounded-3xl hover:bg-blue-50 hover:border-blue-200 transition senior-card focus:outline-none focus:ring-4 focus:ring-blue-200"
               >
-                <p className="font-semibold text-lg text-gray-900">{authorName}</p>
+                <p className="font-extrabold text-xl text-gray-900">{authorName}</p>
 
-                <div className="mt-2 flex items-center gap-2 text-sm text-gray-600 flex-wrap">
-                  <span>
+                <div className="mt-3 flex items-center gap-2 text-base text-gray-700 flex-wrap">
+                  <span className="bg-gray-100 px-4 py-2 rounded-full font-extrabold">
                     ⭐ {Number(annonce.user_score || 0).toFixed(1)} ({annonce.user_total_reviews || 0})
                   </span>
 
-                  <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                  <span className="px-4 py-2 rounded-full bg-blue-50 text-blue-800 border border-blue-100 font-extrabold">
                     {annonce.user_badge || "Nouveau"}
                   </span>
 
                   {annonce.user_is_verified && (
-                    <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                    <span className="px-4 py-2 rounded-full bg-green-100 text-green-800 border border-green-200 font-extrabold">
                       Vérifié ✔
                     </span>
                   )}
                 </div>
 
-                <p className="text-blue-600 mt-2 text-sm font-semibold">Voir le profil →</p>
+                <p className="text-blue-700 mt-3 text-base font-extrabold">
+                  Voir le profil →
+                </p>
               </Link>
             ) : (
-              <div className="p-5 border border-gray-100 rounded-2xl bg-gray-50 text-gray-700">
+              <div className="p-6 border border-gray-100 rounded-3xl bg-gray-50 text-gray-800 senior-card">
                 Auteur indisponible (user_id manquant dans l’API)
               </div>
             )}
 
             {/* Bloc réservation accepté */}
             {reservationStatus === "accepted" && annonce.reservation_requester_email && (
-              <div className="mt-4 p-5 border border-gray-100 rounded-2xl bg-green-50 text-green-900">
-                <div className="text-sm text-green-800">Réservé par</div>
-                <div className="font-semibold">{annonce.reservation_requester_email}</div>
+              <div className="mt-4 p-6 border border-gray-100 rounded-3xl bg-green-50 text-green-900 senior-card">
+                <div className="text-base text-green-800 font-semibold">Réservé par</div>
+                <div className="font-extrabold text-lg mt-1">
+                  {annonce.reservation_requester_email}
+                </div>
               </div>
             )}
           </div>
@@ -430,18 +473,20 @@ function AnnonceDetail() {
 
         {/* AVIS */}
         <div className="p-8 border-t">
-          <h3 className="text-lg font-semibold mb-3 text-gray-800">Laisser un avis</h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <h3 className="text-2xl font-extrabold mb-3 text-gray-900">
+            ⭐ Laisser un avis
+          </h3>
+          <p className="text-base text-gray-700 mb-5">
             Avis autorisé uniquement si la réservation est <b>acceptée</b> et l’annonce <b>terminée</b>.
           </p>
 
           <div className="grid md:grid-cols-2 gap-4 max-w-2xl">
             <div>
-              <label className="block text-sm text-gray-500 mb-1">Note</label>
+              <label className="block text-base font-extrabold text-gray-800 mb-2">Note</label>
               <select
                 value={rating}
                 onChange={(e) => setRating(Number(e.target.value))}
-                className="p-3 bg-gray-100 rounded-lg w-full"
+                className="p-4 bg-gray-100 rounded-3xl w-full border-2 border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-200"
               >
                 {[5, 4, 3, 2, 1].map((n) => (
                   <option key={n} value={n}>
@@ -452,41 +497,44 @@ function AnnonceDetail() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm text-gray-500 mb-1">Commentaire</label>
+              <label className="block text-base font-extrabold text-gray-800 mb-2">
+                Commentaire
+              </label>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                rows={4}
-                className="p-3 bg-gray-100 rounded-lg w-full"
+                rows={5}
+                className="p-4 bg-gray-100 rounded-3xl w-full border-2 border-gray-200 focus:outline-none focus:ring-4 focus:ring-blue-200"
                 placeholder="Décris ton expérience..."
               />
             </div>
 
-            <div className="md:col-span-2 flex items-center justify-between gap-4">
-              <div className="text-sm">
+            <div className="md:col-span-2 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="text-base font-semibold">
                 {!canLeaveReview && (
-                  <span className="text-gray-500">
+                  <span className="text-gray-600">
                     (Le bouton s’activera quand l’annonce sera terminée.)
                   </span>
                 )}
-                {reviewErr && <span className="text-red-600">{reviewErr}</span>}
-                {reviewMsg && <span className="text-green-600">{reviewMsg}</span>}
+                {reviewErr && <div className="text-red-700 mt-2">❌ {reviewErr}</div>}
+                {reviewMsg && <div className="text-green-700 mt-2">✅ {reviewMsg}</div>}
               </div>
 
               <button
                 onClick={handleSubmitReview}
                 disabled={sendingReview || !canLeaveReview}
-                className={`px-6 py-3 rounded-lg font-semibold text-white ${
+                className={`px-7 py-4 rounded-3xl font-extrabold text-lg text-white focus:outline-none focus:ring-4 focus:ring-blue-200 ${
                   sendingReview || !canLeaveReview
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    : "bg-blue-700 hover:bg-blue-800"
                 }`}
               >
-                {sendingReview ? "Envoi..." : "Envoyer l’avis"}
+                {sendingReview ? "Envoi..." : "📨 Envoyer l’avis"}
               </button>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
