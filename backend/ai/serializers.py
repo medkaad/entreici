@@ -7,3 +7,7 @@ class AIGenerateAnnonceSerializer(serializers.Serializer):
     type_hint = serializers.CharField(max_length=50, required=False, allow_blank=True)
     category_hint = serializers.CharField(max_length=120, required=False, allow_blank=True)
     price_hint = serializers.CharField(max_length=50, required=False, allow_blank=True)
+
+class ScamCheckSerializer(serializers.Serializer):
+    title = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    description = serializers.CharField(required=False, allow_blank=True, max_length=5000)

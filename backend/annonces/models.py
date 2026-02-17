@@ -70,6 +70,16 @@ class Annonce(models.Model):
         default="none"
     )
 
+    scam_score = models.IntegerField(default=0)
+    scam_level = models.CharField(
+        max_length=10,
+        choices=[
+            ("low", "Low"),
+            ("medium", "Medium"),
+            ("high", "High"),
+        ],
+        default="low",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
