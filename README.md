@@ -162,7 +162,7 @@ entreici/
 
 ## 1️⃣ Cloner le repo
 ```bash
-git clone <repo-url>
+git clone https://github.com/medkaad/entreici.git
 cd entreici
 ```
 
