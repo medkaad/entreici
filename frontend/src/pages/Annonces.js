@@ -120,9 +120,7 @@ function Annonces() {
     };
 
     return (
-      <span
-        className={`text-base px-4 py-2 rounded-full font-extrabold ${config.color}`}
-      >
+      <span className={`text-base px-4 py-2 rounded-full font-extrabold ${config.color}`}>
         {config.label}
       </span>
     );
@@ -174,9 +172,7 @@ function Annonces() {
 
       {/* FILTRES BACKEND */}
       <div className="mb-6">
-        <Filtres
-          onFilter={(filters) => loadAnnonces(filters, { silent: false })}
-        />
+        <Filtres onFilter={(filters) => loadAnnonces(filters, { silent: false })} />
       </div>
 
       {/* FILTRE FRONTEND (SIMPLE) */}
@@ -188,10 +184,7 @@ function Annonces() {
           className="w-7 h-7"
           id="activeOnly"
         />
-        <label
-          htmlFor="activeOnly"
-          className="text-lg font-extrabold text-gray-900"
-        >
+        <label htmlFor="activeOnly" className="text-lg font-extrabold text-gray-900">
           Afficher uniquement les annonces actives
         </label>
       </div>
@@ -232,9 +225,7 @@ function Annonces() {
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-12 h-12 rounded-full bg-blue-700 text-white flex items-center justify-center font-extrabold text-xl">
-                      {(a.user_first_name?.[0] ||
-                        a.user_email?.[0] ||
-                        "?").toUpperCase()}
+                      {(a.user_first_name?.[0] || a.user_email?.[0] || "?").toUpperCase()}
                     </div>
 
                     <div className="min-w-0">
@@ -246,8 +237,7 @@ function Annonces() {
 
                       <div className="flex items-center gap-2 text-base text-gray-700 flex-wrap mt-2">
                         <span className="bg-gray-100 px-3 py-2 rounded-full font-extrabold">
-                          ⭐ {Number(a.user_score || 0).toFixed(1)} (
-                          {a.user_total_reviews || 0})
+                          ⭐ {Number(a.user_score || 0).toFixed(1)} ({a.user_total_reviews || 0})
                         </span>
 
                         <span className="px-3 py-2 rounded-full bg-blue-50 text-blue-800 border border-blue-100 font-extrabold">
@@ -263,9 +253,7 @@ function Annonces() {
                     </div>
                   </div>
 
-                  <span className="text-base font-extrabold text-blue-700">
-                    Profil →
-                  </span>
+                  <span className="text-base font-extrabold text-blue-700">Profil →</span>
                 </Link>
               ) : (
                 <div
@@ -292,14 +280,34 @@ function Annonces() {
                 >
                   {formatType(a.type)}
                 </span>
-
                 {formatStatus(a.status)}
               </div>
+
+              {/* BADGE ANTI-ARNAQUE (toujours visible si présent) */}
+              {a.scam_level === "medium" && (
+                <div
+                  className="mt-3 inline-flex items-center gap-2 text-base font-extrabold bg-yellow-500 text-white px-4 py-2 rounded-full"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Score: ${a.scam_score ?? "?"}/100`}
+                >
+                  ⚠️ À vérifier
+                </div>
+              )}
+
+              {a.scam_level === "high" && (
+                <div
+                  className="mt-3 inline-flex items-center gap-2 text-base font-extrabold bg-red-700 text-white px-4 py-2 rounded-full"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Score: ${a.scam_score ?? "?"}/100`}
+                >
+                  🚨 Risque arnaque
+                </div>
+              )}
 
               {/* URGENT */}
               {a.is_urgent && (
                 <div
-                  className="mt-4 inline-flex items-center gap-2 text-base font-extrabold bg-red-600 text-white px-4 py-2 rounded-full"
+                  className="mt-3 inline-flex items-center gap-2 text-base font-extrabold bg-red-600 text-white px-4 py-2 rounded-full"
                   onClick={(e) => e.stopPropagation()}
                 >
                   ⚠ URGENT
@@ -324,9 +332,7 @@ function Annonces() {
                 </p>
                 <p>
                   <span className="font-extrabold">Prix :</span>{" "}
-                  {a.price === null || a.price === undefined
-                    ? "Non précisé"
-                    : `${a.price} €`}
+                  {a.price === null || a.price === undefined ? "Non précisé" : `${a.price} €`}
                 </p>
               </div>
 
@@ -375,7 +381,7 @@ function Annonces() {
             onClick={() => setShowModal(false)}
           />
 
-          {/* ✅ IMPORTANT: MODALE SCROLLABLE */}
+          {/* ✅ MODALE SCROLLABLE */}
           <div
             className="
               relative bg-white rounded-3xl shadow-2xl w-full max-w-lg z-10
@@ -389,7 +395,6 @@ function Annonces() {
             aria-label="Créer une annonce"
           >
             <div className="flex items-center justify-between mb-4 gap-3 sticky top-0 bg-white pt-1 pb-3">
-              {/* ✅ titre plus petit pour éviter de “casser” l’écran */}
               <h3 className="text-lg md:text-xl font-extrabold text-gray-900">
                 ➕ Créer une annonce
               </h3>

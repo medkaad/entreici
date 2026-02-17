@@ -59,7 +59,7 @@ async function fetchWithAuth(url, options = {}) {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: accessToken ? `Bearer ${accessToken}` : "",
       ...(options.headers || {}),
     },
   });
@@ -73,7 +73,7 @@ async function fetchWithAuth(url, options = {}) {
         ...options,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: accessToken ? `Bearer ${accessToken}` : "",
           ...(options.headers || {}),
         },
       });
@@ -136,11 +136,7 @@ export function logout() {
 
 export async function getAnnonces(filters = {}) {
   const params = new URLSearchParams(filters).toString();
-
-  const response = await fetchWithAuth(
-    `${API_URL}/annonces/?${params}`
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/annonces/?${params}`);
   return handleResponse(response);
 }
 
@@ -158,45 +154,30 @@ export async function createReview(annonceId, data) {
 }
 
 export async function getMyAnnonces() {
-  const response = await fetchWithAuth(
-    `${API_URL}/annonces/mine/`
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/annonces/mine/`);
   return handleResponse(response);
 }
 
 export async function createAnnonce(data) {
-  const response = await fetchWithAuth(
-    `${API_URL}/annonces/`,
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/annonces/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
   return handleResponse(response);
 }
 
 export async function updateAnnonce(id, data) {
-  const response = await fetchWithAuth(
-    `${API_URL}/annonces/${id}/`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/annonces/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
   return handleResponse(response);
 }
 
 export async function deleteAnnonce(id) {
-  const response = await fetchWithAuth(
-    `${API_URL}/annonces/${id}/`,
-    {
-      method: "DELETE",
-    }
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/annonces/${id}/`, {
+    method: "DELETE",
+  });
   return handleResponse(response);
 }
 
@@ -205,22 +186,20 @@ export async function deleteAnnonce(id) {
 ========================= */
 
 export async function getConversations() {
-  const response = await fetchWithAuth(
-    `${API_URL}/chat/conversations/`
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/chat/conversations/`);
   return handleResponse(response);
 }
 
 export async function createConversation(annonceId) {
-  const response = await fetchWithAuth(
-    `${API_URL}/chat/conversations/`,
-    {
-      method: "POST",
-      body: JSON.stringify({ annonce: annonceId }),
-    }
-  );
+  const response = await fetchWithAuth(`${API_URL}/chat/conversations/`, {
+    method: "POST",
+    body: JSON.stringify({ annonce: annonceId }),
+  });
+  return handleResponse(response);
+}
 
+export async function getConversation(id) {
+  const response = await fetchWithAuth(`${API_URL}/chat/conversations/${id}/`);
   return handleResponse(response);
 }
 
@@ -228,7 +207,6 @@ export async function getMessages(conversationId) {
   const response = await fetchWithAuth(
     `${API_URL}/chat/conversations/${conversationId}/messages/`
   );
-
   return handleResponse(response);
 }
 
@@ -240,20 +218,17 @@ export async function sendMessage(conversationId, content) {
       body: JSON.stringify({ content }),
     }
   );
-
   return handleResponse(response);
 }
 
 /* =========================
-   REGISTER
+   REGISTER + PROFILE
 ========================= */
 
 export async function registerUser(data) {
   const response = await fetch(`${API_URL}/users/register/`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
 
@@ -261,58 +236,35 @@ export async function registerUser(data) {
 }
 
 export async function getMe() {
-  const response = await fetchWithAuth(
-    `${API_URL}/users/me/`
-  );
-
-  return handleResponse(response);
-}
-
-export async function getConversation(id) {
-  const response = await fetchWithAuth(
-    `${API_URL}/chat/conversations/${id}/`
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/users/me/`);
   return handleResponse(response);
 }
 
 export async function getUserProfile(id) {
-  const response = await fetchWithAuth(
-    `${API_URL}/users/${id}/`
-  );
-
+  const response = await fetchWithAuth(`${API_URL}/users/${id}/`);
   return handleResponse(response);
 }
 
 export async function updateMe(data) {
-  const response = await fetchWithAuth(
-    `${API_URL}/users/me/`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await fetchWithAuth(`${API_URL}/users/me/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 
   return handleResponse(response);
 }
 
 export async function changePassword(data) {
-  const response = await fetchWithAuth(
-    `${API_URL}/users/change-password/`,
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
+  const response = await fetchWithAuth(`${API_URL}/users/change-password/`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
   return handleResponse(response);
 }
 
 /* =========================
    RESERVATION WORKFLOW
-   /api/annonces/:id/request_reservation/
-   /api/annonces/:id/accept_reservation/
-   /api/annonces/:id/reject_reservation/
 ========================= */
 
 export async function requestReservation(id) {
@@ -344,9 +296,16 @@ export async function getQuartiers() {
   return handleResponse(response);
 }
 
+/* =========================
+   AI (Ollama / Local)
+========================= */
+
+const AI_BASE = `${process.env.REACT_APP_API_URL || "http://localhost:8000"}/api`;
+
 export async function aiGenerateAnnonce(payload) {
   const token = localStorage.getItem("access_token");
-  const res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:8000"}/api/ai/annonce/`, {
+
+  const res = await fetch(`${AI_BASE}/ai/annonce/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -355,9 +314,28 @@ export async function aiGenerateAnnonce(payload) {
     body: JSON.stringify(payload),
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data?.detail || "Erreur IA");
+  }
+  return data;
+}
+
+export async function scamCheckAnnonce(payload) {
+  const token = localStorage.getItem("access_token");
+
+  const res = await fetch(`${AI_BASE}/ai/scam-check/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.detail || "Erreur anti-arnaque");
   }
   return data;
 }

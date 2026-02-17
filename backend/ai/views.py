@@ -173,3 +173,94 @@ Règles:
                 {"detail": f"Erreur IA: {str(e)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+import re
+
+SCAM_PATTERNS = [
+    (r"\bwestern union\b", "Mention de Western Union"),
+    (r"\bmandat cash\b", "Mention de Mandat Cash"),
+    (r"\bmoneygram\b", "Mention de MoneyGram"),
+    (r"\bpaylib\b", "Mention de Paylib (pas forcément une arnaque mais à vérifier)"),
+    (r"\bpaypal\b.*\b(famille|amis|friends)\b", "PayPal 'amis/famille' (risqué)"),
+    (r"\bcarte cadeau\b|\bgift card\b", "Demande de carte cadeau"),
+    (r"\bcode\b.*\b(sms|reçu|verification|vérification|otp)\b", "Demande d’un code SMS (arnaque fréquente)"),
+    (r"\bwhatsapp\b|\btelegram\b|\bsignal\b", "Demande de quitter la plateforme (WhatsApp/Telegram/Signal)"),
+    (r"\burgence\b|\burgent\b", "Pression / urgence"),
+    (r"\b(a l'etranger|à l'étranger|étranger|shipping|expedier|expédier)\b", "Expédition / étranger"),
+    (r"\b(avance|acompte)\b", "Demande d’avance / acompte"),
+    (r"\biban\b|\brib\b", "Demande d’IBAN/RIB"),
+    (r"\bbitcoins?\b|\bcrypto\b", "Paiement en crypto"),
+    (r"\bgratuit\b.*\bmais\b.*\b(frais|livraison)\b", "Gratuit mais frais cachés"),
+]
+
+PHONE_RE = re.compile(r"(?:(?:\+33|0)\s?[1-9](?:[\s\.-]?\d{2}){4})")
+EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
+URL_RE = re.compile(r"(https?://|www\.)\S+", re.IGNORECASE)
+
+
+def scam_score(title: str, description: str):
+    text = f"{title}\n{description}".lower()
+
+    reasons = []
+    score = 0
+
+    # heuristiques
+    for pattern, reason in SCAM_PATTERNS:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            reasons.append(reason)
+            score += 15
+
+    # infos de contact direct (souvent arnaque/contournement)
+    if PHONE_RE.search(text):
+        reasons.append("Numéro de téléphone dans l’annonce (contournement possible)")
+        score += 10
+
+    if EMAIL_RE.search(text):
+        reasons.append("Email dans l’annonce (contournement possible)")
+        score += 10
+
+    if URL_RE.search(text):
+        reasons.append("Lien externe dans l’annonce (risque)")
+        score += 10
+
+    # beaucoup de majuscules / pression
+    if sum(1 for c in text if c.isupper()) > 50:
+        reasons.append("Trop de majuscules (pression / spam)")
+        score += 5
+
+    # bornes
+    if score > 100:
+        score = 100
+
+    if score >= 60:
+        level = "high"
+    elif score >= 30:
+        level = "medium"
+    else:
+        level = "low"
+
+    return level, score, reasons
+
+
+class ScamCheckView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .serializers import ScamCheckSerializer
+
+        s = ScamCheckSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+
+        title = s.validated_data.get("title", "") or ""
+        description = s.validated_data.get("description", "") or ""
+
+        level, score, reasons = scam_score(title, description)
+
+        return Response(
+            {
+                "level": level,        # low | medium | high
+                "score": score,        # 0..100
+                "reasons": reasons[:8] # max 8 raisons
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -51,6 +51,8 @@ class AnnonceSerializer(serializers.ModelSerializer):
             "reservation_requester_id",
             "reservation_requester_email",
             "reservation_status",
+            "scam_score",
+            "scam_level",
         ]
         read_only_fields = [
             "user_id",
