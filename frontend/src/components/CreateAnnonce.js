@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { createAnnonce } from "../api/api";
-import { useToast } from "../ui/Toast";
+import { createAnnonce, getMe, aiGenerateAnnonce } from "../api/api";
 
 function CreateAnnonce({ onCreated }) {
-  const toast = useToast();
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("service_offer");
@@ -12,38 +9,72 @@ function CreateAnnonce({ onCreated }) {
   const [price, setPrice] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
 
+  // IA
+  const [draft, setDraft] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  const [aiInfo, setAiInfo] = useState(null);
+
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  function validate() {
-    if (!title.trim()) return "Merci d’indiquer un titre.";
-    if (title.trim().length < 5) return "Le titre doit faire au moins 5 caractères.";
-    if (!description.trim()) return "Merci d’écrire une description.";
-    if (description.trim().length < 10) return "La description doit faire au moins 10 caractères.";
-    if (!category.trim()) return "Merci d’indiquer une catégorie.";
-    if (price !== "" && Number(price) < 0) return "Le prix ne peut pas être négatif.";
-    return null;
-  }
+  async function handleAI() {
+    setAiError(null);
+    setAiInfo(null);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError(null);
-
-    const err = validate();
-    if (err) {
-      setError(err);
-      toast.info(err);
+    if (!draft.trim()) {
+      setAiError("Écris 1 ou 2 phrases, puis clique sur “Générer avec IA”.");
       return;
     }
 
     try {
-      setLoading(true);
+      setAiLoading(true);
 
+      // optionnel: prendre ville/quartier depuis le profil (si getMe existe)
+      let ville = "";
+      let quartier = "";
+      try {
+        const me = await getMe();
+        ville = me?.ville || "";
+        quartier = me?.quartier || "";
+      } catch {
+        // pas bloquant
+      }
+
+      const data = await aiGenerateAnnonce({
+        draft: draft.trim(),
+        ville,
+        quartier,
+        type_hint: type,
+        category_hint: category,
+        price_hint: price,
+      });
+
+      // Remplir le formulaire avec la proposition IA
+      setTitle(data.title || "");
+      setDescription(data.description || "");
+      setType(data.type || "service_offer");
+      setCategory(data.category || "");
+      setPrice(data.price === null || data.price === undefined ? "" : String(data.price));
+      setIsUrgent(Boolean(data.is_urgent));
+
+      setAiInfo("✅ Proposition IA appliquée. Tu peux modifier avant de publier.");
+    } catch (e) {
+      setAiError(e.message || "Erreur IA");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
       await createAnnonce({
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
         type,
-        category: category.trim(),
+        category,
         price: price === "" ? null : Number(price),
         is_urgent: isUrgent,
       });
@@ -55,37 +86,71 @@ function CreateAnnonce({ onCreated }) {
       setPrice("");
       setType("service_offer");
       setIsUrgent(false);
+      setDraft("");
+      setAiError(null);
+      setAiInfo(null);
 
-      toast.success("Annonce publiée ✅");
-
-      if (typeof onCreated === "function") onCreated();
+      onCreated();
     } catch (error) {
-      console.error(error);
-      const m = error?.message || "Erreur : impossible de publier l’annonce.";
-      setError(m);
-      toast.error(m);
-    } finally {
-      setLoading(false);
+      alert("Erreur création annonce");
     }
+
+    setLoading(false);
   }
 
   return (
     <div className="senior-card">
-      <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2">
+      <h3 className="text-xl md:text-3xl font-extrabold text-gray-900 mb-3">
         ➕ Créer une annonce
       </h3>
 
-      <p className="text-gray-700 text-lg mb-6">
-        Remplissez les champs ci-dessous puis cliquez sur <b>Publier l’annonce</b>.
-      </p>
+      {/* Bloc IA */}
+      <div className="mb-6 p-5 rounded-3xl border-2 border-blue-100 bg-blue-50">
+        <p className="text-gray-900 font-extrabold text-lg">
+          🤖 Aide IA (facile)
+        </p>
+        <p className="text-gray-800 font-semibold mt-2">
+          Écris juste 1–2 phrases. Exemple : “Je propose de réparer un ordinateur à Villemomble.”
+        </p>
 
-      {error && (
-        <div className="bg-red-50 text-red-700 border border-red-200 p-5 rounded-3xl mb-6 text-lg">
-          ❌ {error}
-        </div>
-      )}
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={4}
+          className="w-full mt-4 p-4 rounded-3xl border-2 border-gray-200 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
+          placeholder="Ex : Je peux aider pour des courses ou bricolage léger..."
+        />
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+        {aiError && (
+          <div className="mt-4 p-4 rounded-3xl border-2 border-red-200 bg-red-50 text-red-700 font-extrabold">
+            ❌ {aiError}
+          </div>
+        )}
+
+        {aiInfo && (
+          <div className="mt-4 p-4 rounded-3xl border-2 border-green-200 bg-green-50 text-green-800 font-extrabold">
+            {aiInfo}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAI}
+          disabled={aiLoading}
+          className={`mt-4 w-full py-4 rounded-3xl font-extrabold text-lg text-white transition focus:outline-none focus:ring-4 focus:ring-blue-200 ${
+            aiLoading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-700 hover:bg-blue-800"
+          }`}
+        >
+          {aiLoading ? "Génération..." : "✨ Générer avec IA"}
+        </button>
+
+        <p className="text-sm md:text-base text-gray-700 font-semibold mt-3">
+          ℹ️ L’IA peut se tromper : vérifie avant de publier.
+        </p>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Titre */}
         <div>
           <label className="block text-lg font-extrabold text-gray-900 mb-2">
@@ -96,13 +161,9 @@ function CreateAnnonce({ onCreated }) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
-            className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-            placeholder="Ex : Besoin d’aide pour les courses"
-            disabled={loading}
+            className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
+            placeholder="Ex: Réparation ordinateur"
           />
-          <p className="mt-2 text-base text-gray-600 font-semibold">
-            Exemple : “Réparation ordinateur”, “Cours de français”, “Vends vélo”.
-          </p>
         </div>
 
         {/* Description */}
@@ -111,31 +172,25 @@ function CreateAnnonce({ onCreated }) {
             Description
           </label>
           <textarea
-            rows={5}
+            rows="6"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required
-            className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-            placeholder="Expliquez ce que vous proposez ou recherchez (où, quand, détails utiles)…"
-            disabled={loading}
+            className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
+            placeholder="Décrivez votre annonce..."
           />
-          <p className="mt-2 text-base text-gray-600 font-semibold">
-            Astuce : indiquez le lieu, la disponibilité, et ce qui est attendu.
-          </p>
         </div>
 
-        {/* Type / Catégorie / Prix */}
         <div className="grid md:grid-cols-2 gap-5">
           {/* Type */}
           <div>
             <label className="block text-lg font-extrabold text-gray-900 mb-2">
-              Type d’annonce
+              Type
             </label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg bg-white focus:outline-none focus:ring-4 focus:ring-blue-200"
-              disabled={loading}
+              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
             >
               <option value="service_offer">Service proposé</option>
               <option value="service_request">Service recherché</option>
@@ -155,9 +210,8 @@ function CreateAnnonce({ onCreated }) {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               required
-              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-              placeholder="Ex : Informatique, Courses, Bricolage..."
-              disabled={loading}
+              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
+              placeholder="Ex: Informatique"
             />
           </div>
 
@@ -170,25 +224,22 @@ function CreateAnnonce({ onCreated }) {
               type="number"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-              placeholder="Laissez vide si gratuit"
-              disabled={loading}
-              min="0"
+              className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
+              placeholder="Optionnel"
             />
           </div>
 
           {/* Urgent */}
-          <div className="flex items-center gap-4 md:mt-8">
+          <div className="flex items-center gap-4 mt-2 p-4 rounded-3xl border-2 border-gray-200 bg-gray-50">
             <input
               type="checkbox"
               checked={isUrgent}
               onChange={() => setIsUrgent(!isUrgent)}
               className="w-7 h-7"
-              disabled={loading}
-              id="urgent"
+              id="isUrgent"
             />
-            <label htmlFor="urgent" className="text-lg font-extrabold text-gray-900">
-              ⚠ Marquer comme urgent
+            <label htmlFor="isUrgent" className="text-lg font-extrabold text-gray-900">
+              Marquer comme urgent
             </label>
           </div>
         </div>
@@ -197,20 +248,12 @@ function CreateAnnonce({ onCreated }) {
         <button
           type="submit"
           disabled={loading}
-          className={`w-full py-5 rounded-3xl font-extrabold text-lg transition shadow-md focus:outline-none focus:ring-4 focus:ring-blue-200 ${
-            loading
-              ? "bg-gray-400 text-white cursor-not-allowed"
-              : "bg-blue-700 text-white hover:bg-blue-800"
+          className={`w-full py-5 rounded-3xl font-extrabold text-lg text-white transition focus:outline-none focus:ring-4 focus:ring-blue-200 ${
+            loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-700 hover:bg-green-800"
           }`}
         >
           {loading ? "Publication..." : "✅ Publier l’annonce"}
         </button>
-
-        <div className="p-5 rounded-3xl bg-gray-50 border border-gray-200">
-          <p className="text-base text-gray-800 font-semibold">
-            Besoin d’aide ? Cliquez sur le bouton <b>❓ Aide</b> en bas à droite.
-          </p>
-        </div>
       </form>
     </div>
   );

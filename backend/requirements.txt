@@ -4,4 +4,6 @@ djangorestframework-simplejwt
 django-filter
 django-cors-headers
 Pillow
+openai>=1.0.0
+requests
 

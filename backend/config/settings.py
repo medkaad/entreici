@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "django_filters",
     "corsheaders",
     "chat.apps.ChatConfig",
+    "ai",
 ]
 
 MIDDLEWARE = [

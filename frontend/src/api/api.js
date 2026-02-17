@@ -343,3 +343,21 @@ export async function getQuartiers() {
   const response = await fetchWithAuth(`${API_URL}/annonces/quartiers/`);
   return handleResponse(response);
 }
+
+export async function aiGenerateAnnonce(payload) {
+  const token = localStorage.getItem("access_token");
+  const res = await fetch(`${process.env.REACT_APP_API_URL || "http://localhost:8000"}/api/ai/annonce/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.detail || "Erreur IA");
+  }
+  return data;
+}
