@@ -7,6 +7,10 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - ollama
 
   frontend:
     build: ./frontend
@@ -17,3 +21,30 @@ services:
       - "3000:3000"
     stdin_open: true
     tty: true
+    depends_on:
+      - backend
+
+  # 🧠 Serveur IA
+  ollama:
+    image: ollama/ollama:latest
+    container_name: entreici_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  # ⬇️ Télécharge le modèle automatiquement au démarrage
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: entreici_ollama_init
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/ollama"]
+    command: ["pull", "llama3.2:1b"]
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  ollama_data:
+
