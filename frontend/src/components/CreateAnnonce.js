@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { createAnnonce, getMe, aiGenerateAnnonce } from "../api/api";
+import {
+  createAnnonce,
+  getMe,
+  aiGenerateAnnonce,
+  scamCheckAnnonce,
+} from "../api/api";
 
 function CreateAnnonce({ onCreated }) {
   const [title, setTitle] = useState("");
@@ -9,11 +14,15 @@ function CreateAnnonce({ onCreated }) {
   const [price, setPrice] = useState("");
   const [isUrgent, setIsUrgent] = useState(false);
 
-  // IA
+  // IA (génération)
   const [draft, setDraft] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [aiInfo, setAiInfo] = useState(null);
+
+  // Anti-arnaque
+  const [scamResult, setScamResult] = useState(null); // {level, score, reasons}
+  const [scamLoading, setScamLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +38,7 @@ function CreateAnnonce({ onCreated }) {
     try {
       setAiLoading(true);
 
-      // optionnel: prendre ville/quartier depuis le profil (si getMe existe)
+      // optionnel: prendre ville/quartier depuis le profil
       let ville = "";
       let quartier = "";
       try {
@@ -54,8 +63,13 @@ function CreateAnnonce({ onCreated }) {
       setDescription(data.description || "");
       setType(data.type || "service_offer");
       setCategory(data.category || "");
-      setPrice(data.price === null || data.price === undefined ? "" : String(data.price));
+      setPrice(
+        data.price === null || data.price === undefined ? "" : String(data.price)
+      );
       setIsUrgent(Boolean(data.is_urgent));
+
+      // reset anti-arnaque (car contenu a changé)
+      setScamResult(null);
 
       setAiInfo("✅ Proposition IA appliquée. Tu peux modifier avant de publier.");
     } catch (e) {
@@ -65,11 +79,127 @@ function CreateAnnonce({ onCreated }) {
     }
   }
 
+  async function runScamCheck({ silent = false } = {}) {
+    // évite de checker vide
+    if (!title.trim() && !description.trim()) {
+      setScamResult(null);
+      return null;
+    }
+
+    try {
+      setScamLoading(true);
+      const res = await scamCheckAnnonce({
+        title: title.trim(),
+        description: description.trim(),
+      });
+      setScamResult(res);
+
+      if (!silent) {
+        // rien ici, l’UI affiche une bannière
+      }
+
+      return res;
+    } catch (e) {
+      // si l'endpoint n'existe pas encore côté backend, on n’empêche pas l’utilisateur
+      console.error("Scam check error:", e);
+      setScamResult(null);
+      return null;
+    } finally {
+      setScamLoading(false);
+    }
+  }
+
+  function scamBanner() {
+    if (scamLoading) {
+      return (
+        <div className="mb-4 p-4 rounded-3xl border-2 border-gray-200 bg-gray-50 text-gray-900 font-extrabold">
+          🔎 Vérification anti-arnaque...
+        </div>
+      );
+    }
+
+    if (!scamResult) return null;
+
+    const { level, score, reasons } = scamResult;
+
+    if (level === "low") {
+      return (
+        <div className="mb-4 p-4 rounded-3xl border-2 border-green-200 bg-green-50 text-green-900 font-extrabold">
+          ✅ Vérification anti-arnaque : OK (score {score}/100)
+        </div>
+      );
+    }
+
+    if (level === "medium") {
+      return (
+        <div className="mb-4 p-4 rounded-3xl border-2 border-yellow-200 bg-yellow-50 text-yellow-900">
+          <p className="font-extrabold text-lg">⚠️ Attention (score {score}/100)</p>
+          <p className="font-semibold mt-1">
+            Certains éléments peuvent ressembler à une arnaque :
+          </p>
+          <ul className="list-disc pl-6 mt-2 font-semibold">
+            {(reasons || []).slice(0, 6).map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+          <p className="font-semibold mt-3">
+            Conseil : évite les numéros, emails, liens externes et paiements hors plateforme.
+          </p>
+        </div>
+      );
+    }
+
+    // high
+    return (
+      <div className="mb-4 p-4 rounded-3xl border-2 border-red-200 bg-red-50 text-red-900">
+        <p className="font-extrabold text-lg">🚨 Risque élevé (score {score}/100)</p>
+        <p className="font-semibold mt-1">
+          Cette annonce ressemble fortement à une arnaque :
+        </p>
+        <ul className="list-disc pl-6 mt-2 font-semibold">
+          {(reasons || []).slice(0, 8).map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
+        <p className="font-semibold mt-3">
+          Modifie le texte (retire tel/email/lien/demande d’avance) puis réessaie.
+        </p>
+      </div>
+    );
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // ✅ 1) Scam-check avant publier
+      const scam = await runScamCheck({ silent: true });
+
+      // Si scam-check indisponible -> scam=null, on laisse publier (MVP)
+      if (scam?.level === "high") {
+        alert(
+          "🚨 Cette annonce semble risquée (possible arnaque).\n\n" +
+            (scam.reasons || []).join("\n") +
+            "\n\nModifie le texte (évite numéros, emails, liens externes, paiement hors plateforme)."
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (scam?.level === "medium") {
+        const ok = window.confirm(
+          "⚠️ Attention : éléments suspects détectés.\n\n" +
+            (scam.reasons || []).join("\n") +
+            "\n\nPublier quand même ?"
+        );
+        if (!ok) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // ✅ 2) Publier
       await createAnnonce({
         title,
         description,
@@ -89,6 +219,7 @@ function CreateAnnonce({ onCreated }) {
       setDraft("");
       setAiError(null);
       setAiInfo(null);
+      setScamResult(null);
 
       onCreated();
     } catch (error) {
@@ -100,15 +231,13 @@ function CreateAnnonce({ onCreated }) {
 
   return (
     <div className="senior-card">
-      <h3 className="text-xl md:text-3xl font-extrabold text-gray-900 mb-3">
+      <h3 className="text-lg md:text-xl font-extrabold text-gray-900 mb-3">
         ➕ Créer une annonce
       </h3>
 
       {/* Bloc IA */}
-      <div className="mb-6 p-5 rounded-3xl border-2 border-blue-100 bg-blue-50">
-        <p className="text-gray-900 font-extrabold text-lg">
-          🤖 Aide IA (facile)
-        </p>
+      <div className="mb-6 p-4 md:p-5 rounded-3xl border-2 border-blue-100 bg-blue-50">
+        <p className="text-gray-900 font-extrabold text-lg">🤖 Aide IA (facile)</p>
         <p className="text-gray-800 font-semibold mt-2">
           Écris juste 1–2 phrases. Exemple : “Je propose de réparer un ordinateur à Villemomble.”
         </p>
@@ -118,7 +247,7 @@ function CreateAnnonce({ onCreated }) {
           onChange={(e) => setDraft(e.target.value)}
           rows={4}
           className="w-full mt-4 p-4 rounded-3xl border-2 border-gray-200 text-lg focus:outline-none focus:ring-4 focus:ring-blue-200"
-          placeholder="Ex : Je peux aider pour des courses ou bricolage léger..."
+          placeholder="Ex : Je peux aider pour des courses ou bricolage léger."
         />
 
         {aiError && (
@@ -159,7 +288,11 @@ function CreateAnnonce({ onCreated }) {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setScamResult(null);
+            }}
+            onBlur={() => runScamCheck({ silent: true })}
             required
             className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
             placeholder="Ex: Réparation ordinateur"
@@ -174,12 +307,19 @@ function CreateAnnonce({ onCreated }) {
           <textarea
             rows="6"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setScamResult(null);
+            }}
+            onBlur={() => runScamCheck({ silent: true })}
             required
             className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
             placeholder="Décrivez votre annonce..."
           />
         </div>
+
+        {/* ✅ Bannière anti-arnaque */}
+        {scamBanner()}
 
         <div className="grid md:grid-cols-2 gap-5">
           {/* Type */}
@@ -189,7 +329,10 @@ function CreateAnnonce({ onCreated }) {
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value)}
+              onChange={(e) => {
+                setType(e.target.value);
+                setScamResult(null);
+              }}
               className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
             >
               <option value="service_offer">Service proposé</option>
@@ -208,7 +351,10 @@ function CreateAnnonce({ onCreated }) {
             <input
               type="text"
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setScamResult(null);
+              }}
               required
               className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
               placeholder="Ex: Informatique"
@@ -223,7 +369,10 @@ function CreateAnnonce({ onCreated }) {
             <input
               type="number"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={(e) => {
+                setPrice(e.target.value);
+                setScamResult(null);
+              }}
               className="w-full border-2 border-gray-300 rounded-3xl px-5 py-4 text-lg focus:ring-4 focus:ring-blue-200"
               placeholder="Optionnel"
             />
@@ -234,11 +383,17 @@ function CreateAnnonce({ onCreated }) {
             <input
               type="checkbox"
               checked={isUrgent}
-              onChange={() => setIsUrgent(!isUrgent)}
+              onChange={() => {
+                setIsUrgent(!isUrgent);
+                setScamResult(null);
+              }}
               className="w-7 h-7"
               id="isUrgent"
             />
-            <label htmlFor="isUrgent" className="text-lg font-extrabold text-gray-900">
+            <label
+              htmlFor="isUrgent"
+              className="text-lg font-extrabold text-gray-900"
+            >
               Marquer comme urgent
             </label>
           </div>
@@ -253,6 +408,16 @@ function CreateAnnonce({ onCreated }) {
           }`}
         >
           {loading ? "Publication..." : "✅ Publier l’annonce"}
+        </button>
+
+        {/* petit bouton check manuel */}
+        <button
+          type="button"
+          onClick={() => runScamCheck({ silent: false })}
+          disabled={scamLoading}
+          className="w-full py-4 rounded-3xl font-extrabold text-lg border-2 border-gray-300 text-gray-900 hover:bg-gray-50 transition focus:outline-none focus:ring-4 focus:ring-gray-200"
+        >
+          {scamLoading ? "Vérification..." : "🔎 Vérifier l’annonce (anti-arnaque)"}
         </button>
       </form>
     </div>

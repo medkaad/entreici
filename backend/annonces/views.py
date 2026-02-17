@@ -14,6 +14,7 @@ from .permissions import IsOwnerOrReadOnly
 
 from users.models import Review
 from chat.models import Conversation, Message
+from ai.views import scam_score
 
 
 class AnnonceViewSet(viewsets.ModelViewSet):
@@ -31,32 +32,35 @@ class AnnonceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        user_ville = getattr(user.profile, "ville", None)
+        user_ville = (getattr(user.profile, "ville", "") or "").strip()
 
         qs = (
             Annonce.objects
             .select_related("user", "user__profile")
-            .filter(
-                Q(status__in=["active", "in_progress", "completed", "cancelled"]) |
-                Q(user=user)
-            )
+            .filter(Q(status__in=["active", "in_progress", "completed", "cancelled"]) | Q(user=user))
             .exclude(status="deleted")
             .order_by("-created_at")
         )
 
-        # ✅ IMPORTANT : seulement la ville du user
         if user_ville:
-            qs = qs.filter(ville=user_ville)
+            qs = qs.filter(Q(user=user) | Q(ville__iexact=user_ville))
 
         return qs
 
     def perform_create(self, serializer):
-        profile = self.request.user.profile
-        serializer.save(
-            user=self.request.user,
-            ville=profile.ville,
-            quartier=profile.quartier or ""
-        )
+        user = self.request.user
+        annonce = serializer.save(user=user)
+
+        # ✅ Assurer ville/quartier
+        if not annonce.ville:
+            annonce.ville = (getattr(user.profile, "ville", "") or "").strip()
+        if not annonce.quartier:
+            annonce.quartier = (getattr(user.profile, "quartier", "") or "").strip()
+
+        level, score, reasons = scam_score(annonce.title or "", annonce.description or "")
+        annonce.scam_level = level
+        annonce.scam_score = score
+        annonce.save()
 
     def perform_update(self, serializer):
         instance = serializer.instance
